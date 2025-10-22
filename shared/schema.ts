@@ -80,6 +80,7 @@ export type InsertTask = typeof tasks.$inferInsert;
 
 export const insertTaskSchema = createInsertSchema(tasks).omit({
   id: true,
+  userId: true,
   createdAt: true,
   updatedAt: true,
   completedAt: true,
@@ -89,6 +90,7 @@ export const updateTaskSchema = createInsertSchema(tasks).omit({
   id: true,
   userId: true,
   createdAt: true,
+  updatedAt: true,
 }).partial();
 
 // Documents for tracking college-related paperwork
@@ -111,9 +113,17 @@ export type InsertDocument = typeof documents.$inferInsert;
 
 export const insertDocumentSchema = createInsertSchema(documents).omit({
   id: true,
+  userId: true,
   createdAt: true,
   updatedAt: true,
 });
+
+export const updateDocumentSchema = createInsertSchema(documents).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+  updatedAt: true,
+}).partial();
 
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({

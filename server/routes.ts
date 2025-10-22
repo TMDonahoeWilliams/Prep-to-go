@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
-import { insertTaskSchema, updateTaskSchema, insertDocumentSchema } from "@shared/schema";
+import { insertTaskSchema, updateTaskSchema, insertDocumentSchema, updateDocumentSchema } from "@shared/schema";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -53,16 +53,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/tasks', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const tasks = await storage.getUserTasks(userId);
-      
-      // Populate category data for each task
-      const tasksWithCategories = await Promise.all(
-        tasks.map(async (task) => {
-          const category = await storage.getCategoryById(task.categoryId);
-          return { ...task, category };
-        })
-      );
-      
+      const tasksWithCategories = await storage.getUserTasksWithCategories(userId);
       res.json(tasksWithCategories);
     } catch (error) {
       console.error("Error fetching tasks:", error);
@@ -177,7 +168,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       const { id } = req.params;
-      const validated = insertDocumentSchema.partial().parse(req.body);
+      const validated = updateDocumentSchema.parse(req.body);
       
       const document = await storage.updateDocument(userId, id, validated);
       

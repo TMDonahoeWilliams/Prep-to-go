@@ -28,6 +28,7 @@ export interface IStorage {
   
   // Task operations
   getUserTasks(userId: string): Promise<Task[]>;
+  getUserTasksWithCategories(userId: string): Promise<Array<Task & { category: Category | null }>>;
   getTaskById(userId: string, taskId: string): Promise<Task | undefined>;
   createTask(task: InsertTask): Promise<Task>;
   updateTask(userId: string, taskId: string, updates: Partial<InsertTask>): Promise<Task | undefined>;
@@ -100,6 +101,23 @@ export class DatabaseStorage implements IStorage {
       .from(tasks)
       .where(eq(tasks.userId, userId))
       .orderBy(desc(tasks.createdAt));
+  }
+
+  async getUserTasksWithCategories(userId: string): Promise<Array<Task & { category: Category | null }>> {
+    const results = await db
+      .select({
+        task: tasks,
+        category: categories,
+      })
+      .from(tasks)
+      .leftJoin(categories, eq(tasks.categoryId, categories.id))
+      .where(eq(tasks.userId, userId))
+      .orderBy(desc(tasks.createdAt));
+
+    return results.map(({ task, category }) => ({
+      ...task,
+      category,
+    }));
   }
 
   async getTaskById(userId: string, taskId: string): Promise<Task | undefined> {
