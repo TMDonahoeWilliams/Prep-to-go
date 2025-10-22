@@ -79,12 +79,14 @@ app.use((req, res, next) => {
   }, async () => {
     log(`serving on port ${port}`);
     
-    // Seed default categories after server is ready
-    try {
-      await seedCategories();
-      log('Categories seeded successfully');
-    } catch (error) {
-      console.error("Error seeding categories:", error);
+    // Only seed categories in development mode
+    if (app.get("env") === "development") {
+      try {
+        await seedCategories();
+        log('Categories seeded successfully');
+      } catch (error) {
+        console.error("Error seeding categories:", error);
+      }
     }
   });
 })();

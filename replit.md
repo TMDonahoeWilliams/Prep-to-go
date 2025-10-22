@@ -141,12 +141,32 @@ shared/
 
 ## Recent Changes
 
+- **2025-10-22**: Deployment optimizations
+  - Added health check endpoint at `/` for deployment health checks
+  - Moved category seeding to development mode only (not production)
+  - Server starts immediately and stays alive for production deployments
+  - All integration requirements complete with consistent error handling
+
 - **2025-01-22**: Initial MVP implementation
   - Complete frontend with all pages and components
   - Database schema and backend API design
   - Replit Auth integration
   - Dark mode support
   - Responsive design across all breakpoints
+
+## Deployment
+
+### Production Configuration
+- Health check endpoint: `GET /` returns `{ status: 'ok', service: 'College Prep Organizer' }`
+- Category seeding: Only runs in development mode to prevent startup delays
+- Server listens on port 5000 (configurable via PORT env variable)
+- Database categories must be seeded manually in production on first deployment
+
+### Environment Variables
+- `DATABASE_URL` - PostgreSQL connection string (auto-configured)
+- `SESSION_SECRET` - Session encryption key (auto-configured)
+- `NODE_ENV` - Set to 'production' for deployment
+- `PORT` - Server port (default: 5000)
 
 ## Development Notes
 
