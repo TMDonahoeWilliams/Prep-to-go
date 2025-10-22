@@ -48,13 +48,6 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  // Seed default categories on startup
-  try {
-    await seedCategories();
-  } catch (error) {
-    console.error("Error seeding categories:", error);
-  }
-
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
@@ -83,7 +76,15 @@ app.use((req, res, next) => {
     port,
     host: "0.0.0.0",
     reusePort: true,
-  }, () => {
+  }, async () => {
     log(`serving on port ${port}`);
+    
+    // Seed default categories after server is ready
+    try {
+      await seedCategories();
+      log('Categories seeded successfully');
+    } catch (error) {
+      console.error("Error seeding categories:", error);
+    }
   });
 })();
