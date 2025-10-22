@@ -2,6 +2,7 @@
 import { db } from "./db";
 import { categories } from "@shared/schema";
 import { eq } from "drizzle-orm";
+import { fileURLToPath } from 'url';
 
 const defaultCategories = [
   {
@@ -72,7 +73,7 @@ export async function seedCategories() {
 }
 
 // Run seed if called directly
-if (require.main === module) {
+if (import.meta.url === `file://${process.argv[1]}`) {
   seedCategories()
     .then(() => {
       console.log("Seed completed");

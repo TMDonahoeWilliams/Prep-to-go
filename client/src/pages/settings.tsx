@@ -1,4 +1,3 @@
-import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -6,7 +5,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { isUnauthorizedError } from "@/lib/authUtils";
 import {
   Select,
   SelectContent,
@@ -15,17 +13,23 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { Moon, Sun, User } from "lucide-react";
+import { User } from "lucide-react";
 import { useTheme } from "@/components/theme-provider";
+import { useMutation } from "@tanstack/react-query";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Settings() {
   const { user } = useAuth();
   const { toast } = useToast();
   const { theme } = useTheme();
 
-  const updateRoleMutation = useMutation({
+  const updateRole = useMutation({
     mutationFn: async (role: string) => {
-      return await apiRequest("PATCH", "/api/auth/user/role", { role });
+      return await apiRequest("/api/auth/user/role", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role }),
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
@@ -34,18 +38,7 @@ export default function Settings() {
         description: "Role updated successfully",
       });
     },
-    onError: (error: Error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
+    onError: () => {
       toast({
         title: "Error",
         description: "Failed to update role",
@@ -56,10 +49,12 @@ export default function Settings() {
 
   if (!user) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading settings...</p>
+      <div className="space-y-6 max-w-2xl">
+        <Skeleton className="h-8 w-64" />
+        <div className="space-y-4">
+          <Skeleton className="h-48" />
+          <Skeleton className="h-32" />
+          <Skeleton className="h-24" />
         </div>
       </div>
     );
@@ -74,37 +69,35 @@ export default function Settings() {
     : user.email || "User";
 
   return (
-    <div className="space-y-6 max-w-4xl">
-      {/* Header */}
+    <div className="space-y-6 max-w-2xl">
       <div>
-        <h1 className="text-4xl font-semibold tracking-tight mb-2">Settings</h1>
-        <p className="text-muted-foreground">Manage your account and preferences</p>
+        <h1 className="text-3xl font-bold" data-testid="text-page-title">Settings</h1>
+        <p className="text-muted-foreground mt-1">Manage your account and preferences</p>
       </div>
 
-      {/* Profile */}
       <Card className="p-6">
-        <h2 className="text-xl font-semibold mb-6">Profile</h2>
-        
+        <h2 className="text-lg font-semibold mb-4">Profile</h2>
         <div className="flex items-center gap-4 mb-6">
-          <Avatar className="h-20 w-20">
-            <AvatarImage src={user.profileImageUrl || undefined} className="object-cover" />
-            <AvatarFallback className="text-2xl">{initials}</AvatarFallback>
+          <Avatar className="h-16 w-16">
+            <AvatarImage src={user.profileImageUrl || ""} alt={displayName} />
+            <AvatarFallback>
+              <User className="h-8 w-8" />
+            </AvatarFallback>
           </Avatar>
           <div>
-            <h3 className="text-lg font-medium" data-testid="text-user-name">{displayName}</h3>
+            <p className="font-medium" data-testid="text-user-name">{displayName}</p>
             <p className="text-sm text-muted-foreground" data-testid="text-user-email">{user.email}</p>
           </div>
         </div>
 
         <div className="space-y-4">
           <div>
-            <Label htmlFor="role">Your Role</Label>
+            <Label htmlFor="role">Account Type</Label>
             <Select
-              value={user.role}
-              onValueChange={(value) => updateRoleMutation.mutate(value)}
-              disabled={updateRoleMutation.isPending}
+              value={user.role || "student"}
+              onValueChange={(value) => updateRole.mutate(value)}
             >
-              <SelectTrigger id="role" className="mt-2" data-testid="select-user-role">
+              <SelectTrigger id="role" data-testid="select-role">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -112,62 +105,35 @@ export default function Settings() {
                 <SelectItem value="parent">Parent</SelectItem>
               </SelectContent>
             </Select>
-            <p className="text-xs text-muted-foreground mt-2">
-              Choose whether you're using this app as a student or parent
+            <p className="text-xs text-muted-foreground mt-1">
+              Choose whether you're a student or parent
             </p>
           </div>
         </div>
       </Card>
 
-      {/* Appearance */}
       <Card className="p-6">
-        <h2 className="text-xl font-semibold mb-6">Appearance</h2>
-        
-        <div className="space-y-4">
+        <h2 className="text-lg font-semibold mb-4">Appearance</h2>
+        <div className="flex items-center justify-between">
           <div>
             <Label>Theme</Label>
-            <div className="flex items-center gap-3 mt-2">
-              <div className="flex items-center gap-2 text-sm">
-                {theme === 'light' ? (
-                  <Sun className="h-4 w-4" />
-                ) : (
-                  <Moon className="h-4 w-4" />
-                )}
-                <span className="capitalize">{theme} Mode</span>
-              </div>
-              <ThemeToggle />
-            </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              Toggle between light and dark mode
+            <p className="text-sm text-muted-foreground">
+              Current theme: {theme === "dark" ? "Dark" : "Light"}
             </p>
           </div>
+          <ThemeToggle />
         </div>
       </Card>
 
-      {/* Account Actions */}
       <Card className="p-6">
-        <h2 className="text-xl font-semibold mb-6">Account</h2>
-        
-        <div className="space-y-4">
-          <Button
-            variant="outline"
-            asChild
-            className="w-full sm:w-auto"
-            data-testid="button-logout"
-          >
-            <a href="/api/logout">Log Out</a>
-          </Button>
-        </div>
-      </Card>
-
-      {/* About */}
-      <Card className="p-6">
-        <h2 className="text-xl font-semibold mb-4">About</h2>
-        <p className="text-sm text-muted-foreground">
-          College Prep Organizer helps high school seniors and parents stay organized 
-          during the college preparation journey. Track tasks, manage documents, and 
-          ensure nothing falls through the cracks.
-        </p>
+        <h2 className="text-lg font-semibold mb-4">Account</h2>
+        <Button
+          variant="outline"
+          asChild
+          data-testid="button-logout"
+        >
+          <a href="/api/logout">Log Out</a>
+        </Button>
       </Card>
     </div>
   );

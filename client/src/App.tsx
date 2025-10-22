@@ -17,7 +17,7 @@ import Documents from "@/pages/documents";
 import Settings from "@/pages/settings";
 
 function Router() {
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
 
   return (
     <Switch>
@@ -37,7 +37,7 @@ function Router() {
   );
 }
 
-export default function App() {
+function AppContent() {
   const { isAuthenticated, isLoading, user } = useAuth();
 
   const style = {
@@ -45,32 +45,40 @@ export default function App() {
     "--sidebar-width-icon": "3rem",
   };
 
+  if (isLoading || !isAuthenticated) {
+    return (
+      <>
+        <Router />
+        <Toaster />
+      </>
+    );
+  }
+
+  return (
+    <SidebarProvider style={style as React.CSSProperties}>
+      <div className="flex h-screen w-full">
+        <AppSidebar user={user} />
+        <div className="flex flex-col flex-1 overflow-hidden">
+          <header className="flex items-center justify-between p-4 border-b bg-background">
+            <SidebarTrigger data-testid="button-sidebar-toggle" />
+            <ThemeToggle />
+          </header>
+          <main className="flex-1 overflow-y-auto p-6">
+            <Router />
+          </main>
+        </div>
+      </div>
+      <Toaster />
+    </SidebarProvider>
+  );
+}
+
+export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="light">
         <TooltipProvider>
-          {isLoading || !isAuthenticated ? (
-            <>
-              <Router />
-              <Toaster />
-            </>
-          ) : (
-            <SidebarProvider style={style as React.CSSProperties}>
-              <div className="flex h-screen w-full">
-                <AppSidebar user={user} />
-                <div className="flex flex-col flex-1 overflow-hidden">
-                  <header className="flex items-center justify-between p-4 border-b bg-background">
-                    <SidebarTrigger data-testid="button-sidebar-toggle" />
-                    <ThemeToggle />
-                  </header>
-                  <main className="flex-1 overflow-y-auto p-6">
-                    <Router />
-                  </main>
-                </div>
-              </div>
-              <Toaster />
-            </SidebarProvider>
-          )}
+          <AppContent />
         </TooltipProvider>
       </ThemeProvider>
     </QueryClientProvider>

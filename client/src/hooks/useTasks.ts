@@ -1,0 +1,68 @@
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import type { Task, Category } from "@shared/schema";
+import { z } from "zod";
+import { insertTaskSchema, updateTaskSchema } from "@shared/schema";
+
+type TaskWithCategory = Task & { category: Category | null };
+
+export function useTasks() {
+  return useQuery<TaskWithCategory[]>({
+    queryKey: ["/api/tasks"],
+  });
+}
+
+export function useTaskStats() {
+  return useQuery<{
+    totalTasks: number;
+    completedTasks: number;
+    overdueTasks: number;
+    upcomingTasks: number;
+  }>({
+    queryKey: ["/api/tasks/stats"],
+  });
+}
+
+export function useCreateTask() {
+  return useMutation({
+    mutationFn: async (data: z.infer<typeof insertTaskSchema>) => {
+      return await apiRequest("/api/tasks", {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks/stats"] });
+    },
+  });
+}
+
+export function useUpdateTask() {
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: z.infer<typeof updateTaskSchema> }) => {
+      return await apiRequest(`/api/tasks/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks/stats"] });
+    },
+  });
+}
+
+export function useDeleteTask() {
+  return useMutation({
+    mutationFn: async (id: string) => {
+      return await apiRequest(`/api/tasks/${id}`, {
+        method: "DELETE",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks/stats"] });
+    },
+  });
+}
