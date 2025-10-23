@@ -6,8 +6,8 @@ import { insertTaskSchema, updateTaskSchema, insertDocumentSchema, updateDocumen
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Health check endpoint for deployment
-  app.get('/', (req, res) => {
+  // Health check endpoint for deployment (must not conflict with frontend serving)
+  app.get('/api/health', (req, res) => {
     res.status(200).json({ status: 'ok', service: 'College Prep Organizer' });
   });
 
