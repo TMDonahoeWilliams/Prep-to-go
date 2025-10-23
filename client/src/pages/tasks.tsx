@@ -39,7 +39,7 @@ export default function Tasks() {
         id,
         data: {
           status: completed ? "completed" : "pending",
-          completedAt: completed ? new Date().toISOString() : null,
+          completedAt: completed ? new Date() : null,
         },
       });
     } catch (error) {

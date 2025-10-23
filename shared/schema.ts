@@ -129,6 +129,8 @@ export const updateDocumentSchema = createInsertSchema(documents).omit({
 export const usersRelations = relations(users, ({ many }) => ({
   tasks: many(tasks),
   documents: many(documents),
+  subscriptions: many(subscriptions),
+  payments: many(payments),
 }));
 
 export const categoriesRelations = relations(categories, ({ many }) => ({
@@ -155,5 +157,59 @@ export const documentsRelations = relations(documents, ({ one }) => ({
   task: one(tasks, {
     fields: [documents.taskId],
     references: [tasks.id],
+  }),
+}));
+
+// Subscriptions table for payment tracking
+export const subscriptions = pgTable("subscriptions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  stripeCustomerId: varchar("stripe_customer_id").unique(),
+  stripeSubscriptionId: varchar("stripe_subscription_id").unique(),
+  stripePriceId: varchar("stripe_price_id"),
+  status: varchar("status", { length: 50 }).notNull(), // 'active', 'canceled', 'incomplete', 'incomplete_expired', 'past_due', 'trialing', 'unpaid'
+  currentPeriodStart: timestamp("current_period_start"),
+  currentPeriodEnd: timestamp("current_period_end"),
+  cancelAtPeriodEnd: boolean("cancel_at_period_end").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export type Subscription = typeof subscriptions.$inferSelect;
+export type UpsertSubscription = typeof subscriptions.$inferInsert;
+
+// Payment history table
+export const payments = pgTable("payments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  subscriptionId: varchar("subscription_id").references(() => subscriptions.id, { onDelete: 'cascade' }),
+  stripePaymentIntentId: varchar("stripe_payment_intent_id").unique(),
+  amount: integer("amount").notNull(), // in cents
+  currency: varchar("currency", { length: 3 }).notNull().default('usd'),
+  status: varchar("status", { length: 50 }).notNull(), // 'succeeded', 'pending', 'failed'
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type Payment = typeof payments.$inferSelect;
+export type UpsertPayment = typeof payments.$inferInsert;
+
+// Subscription relations
+export const subscriptionsRelations = relations(subscriptions, ({ one, many }) => ({
+  user: one(users, {
+    fields: [subscriptions.userId],
+    references: [users.id],
+  }),
+  payments: many(payments),
+}));
+
+export const paymentsRelations = relations(payments, ({ one }) => ({
+  user: one(users, {
+    fields: [payments.userId],
+    references: [users.id],
+  }),
+  subscription: one(subscriptions, {
+    fields: [payments.subscriptionId],
+    references: [subscriptions.id],
   }),
 }));

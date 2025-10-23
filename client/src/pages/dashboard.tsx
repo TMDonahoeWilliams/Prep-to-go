@@ -31,7 +31,7 @@ export default function Dashboard() {
         id,
         data: {
           status: completed ? "completed" : "pending",
-          completedAt: completed ? new Date().toISOString() : null,
+          completedAt: completed ? new Date() : null,
         },
       });
     } catch (error) {

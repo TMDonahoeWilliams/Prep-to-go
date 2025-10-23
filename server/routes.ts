@@ -1,7 +1,10 @@
 import type { Express } from "express";
+import express from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
+import { setupDevAuth, isDevAuthenticated } from "./devAuth";
+import { requirePaidAccess } from "./paymentMiddleware";
 import { insertTaskSchema, updateTaskSchema, insertDocumentSchema, updateDocumentSchema } from "@shared/schema";
 import { z } from "zod";
 
@@ -11,14 +14,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(200).json({ status: 'ok', service: 'College Prep Organizer' });
   });
 
-  // Auth middleware
-  await setupAuth(app);
+  // Auth middleware - use dev auth in development, real auth in production
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  const authMiddleware = isDevelopment ? isDevAuthenticated : isAuthenticated;
 
-  // Auth routes
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+  if (isDevelopment) {
+    console.log("🔧 Using development authentication");
+    await setupDevAuth(app);
+  } else {
+    console.log("🔐 Using production authentication");
+    await setupAuth(app);
+  }
+
+    // Auth routes
+  app.get('/api/auth/user', authMiddleware, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
       res.json(user);
     } catch (error) {
       console.error("Error fetching user:", error);
@@ -26,7 +43,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/auth/user/role', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/auth/user/role', authMiddleware, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { role } = req.body;
@@ -43,8 +60,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Category routes
-  app.get('/api/categories', isAuthenticated, async (req, res) => {
+  // Category routes - require payment
+  app.get('/api/categories', authMiddleware, requirePaidAccess, async (req, res) => {
     try {
       const categories = await storage.getCategories();
       res.json(categories);
@@ -54,8 +71,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Task routes
-  app.get('/api/tasks', isAuthenticated, async (req: any, res) => {
+  // Task routes - require payment
+  app.get('/api/tasks', authMiddleware, requirePaidAccess, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const tasksWithCategories = await storage.getUserTasksWithCategories(userId);
@@ -66,7 +83,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/tasks/stats', isAuthenticated, async (req: any, res) => {
+  app.get('/api/tasks/stats', authMiddleware, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const stats = await storage.getTaskStats(userId);
@@ -77,27 +94,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/tasks', isAuthenticated, async (req: any, res) => {
+  app.post('/api/tasks', authMiddleware, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const validated = insertTaskSchema.parse(req.body);
+      const { title, description, category, deadline, priority } = req.body;
       
-      const task = await storage.createTask({
-        ...validated,
+      const newTask = await storage.createTask({
         userId,
+        categoryId: category,
+        title,
+        description,
+        dueDate: deadline ? new Date(deadline) : null,
+        priority: priority || 'medium',
       });
       
-      res.status(201).json(task);
+      res.json(newTask);
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Invalid task data", errors: error.errors });
-      }
       console.error("Error creating task:", error);
       res.status(500).json({ message: "Failed to create task" });
     }
   });
 
-  app.patch('/api/tasks/:id', isAuthenticated, async (req: any, res) => {
+  app.get('/api/tasks', authMiddleware, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const tasks = await storage.getUserTasks(userId);
+      res.json(tasks);
+    } catch (error) {
+      console.error("Error fetching tasks:", error);
+      res.status(500).json({ message: "Failed to fetch tasks" });
+    }
+  });
+
+  app.patch('/api/tasks/:id', authMiddleware, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { id } = req.params;
@@ -119,7 +148,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/tasks/:id', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/tasks/:id', authMiddleware, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { id } = req.params;
@@ -138,7 +167,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Document routes
-  app.get('/api/documents', isAuthenticated, async (req: any, res) => {
+  app.get('/api/documents', authMiddleware, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const documents = await storage.getUserDocuments(userId);
@@ -149,7 +178,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/documents', isAuthenticated, async (req: any, res) => {
+  app.post('/api/documents', authMiddleware, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const validated = insertDocumentSchema.parse(req.body);
@@ -169,7 +198,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/documents/:id', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/documents/:id', authMiddleware, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { id } = req.params;
@@ -191,7 +220,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/documents/:id', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/documents/:id', authMiddleware, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { id } = req.params;
@@ -206,6 +235,158 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting document:", error);
       res.status(500).json({ message: "Failed to delete document" });
+    }
+  });
+
+  // Payment routes
+  app.post('/api/payments/create-payment-intent', async (req, res) => {
+    try {
+      const { amount, currency, userEmail, priceId } = req.body;
+
+      if (!amount || !currency || !userEmail) {
+        return res.status(400).json({ error: 'Missing required payment parameters' });
+      }
+
+      const stripe = (await import('./payments')).default;
+      const { paymentStorage } = await import('./payments');
+
+      // Create or get customer
+      let customer;
+      const existingUsers = await paymentStorage.getUserByEmail(userEmail);
+      
+      if (existingUsers.length > 0) {
+        // Get existing customer or create new one
+        const customers = await stripe.customers.list({
+          email: userEmail,
+          limit: 1,
+        });
+        
+        if (customers.data.length > 0) {
+          customer = customers.data[0];
+        } else {
+          customer = await stripe.customers.create({
+            email: userEmail,
+            metadata: {
+              userId: existingUsers[0].id,
+            },
+          });
+        }
+      } else {
+        return res.status(400).json({ error: 'User not found' });
+      }
+
+      // Create payment intent
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount,
+        currency,
+        customer: customer.id,
+        metadata: {
+          userEmail,
+          priceId,
+          userId: existingUsers[0].id,
+        },
+        automatic_payment_methods: {
+          enabled: true,
+        },
+      });
+
+      res.json({
+        clientSecret: paymentIntent.client_secret,
+      });
+    } catch (error) {
+      console.error('Payment intent creation error:', error);
+      res.status(500).json({ error: 'Failed to create payment intent' });
+    }
+  });
+
+  // Webhook for Stripe events
+  app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+    try {
+      const stripe = (await import('./payments')).default;
+      const { paymentStorage } = await import('./payments');
+      
+      const sig = req.headers['stripe-signature'] as string;
+      const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+      if (!endpointSecret) {
+        console.error('Stripe webhook secret not configured');
+        return res.status(400).send('Webhook secret not configured');
+      }
+
+      let event;
+      try {
+        event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
+      } catch (err) {
+        console.error('Webhook signature verification failed:', err);
+        return res.status(400).send(`Webhook Error: ${err}`);
+      }
+
+      // Handle the event
+      switch (event.type) {
+        case 'payment_intent.succeeded':
+          const paymentIntent = event.data.object;
+          
+          // Record the payment
+          await paymentStorage.recordPayment({
+            userId: paymentIntent.metadata.userId,
+            stripePaymentIntentId: paymentIntent.id,
+            amount: paymentIntent.amount,
+            currency: paymentIntent.currency,
+            status: 'succeeded',
+            description: 'College Prep Organizer Access',
+          });
+
+          // Create subscription record for one-time payment
+          await paymentStorage.upsertSubscription({
+            userId: paymentIntent.metadata.userId,
+            stripeCustomerId: paymentIntent.customer as string,
+            status: 'active',
+            currentPeriodStart: new Date(),
+            currentPeriodEnd: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year access
+            cancelAtPeriodEnd: false,
+          });
+
+          console.log('Payment succeeded:', paymentIntent.id);
+          break;
+
+        case 'payment_intent.payment_failed':
+          const failedPayment = event.data.object;
+          
+          await paymentStorage.recordPayment({
+            userId: failedPayment.metadata.userId,
+            stripePaymentIntentId: failedPayment.id,
+            amount: failedPayment.amount,
+            currency: failedPayment.currency,
+            status: 'failed',
+            description: 'College Prep Organizer Access - Failed',
+          });
+
+          console.log('Payment failed:', failedPayment.id);
+          break;
+
+        default:
+          console.log(`Unhandled event type ${event.type}`);
+      }
+
+      res.json({ received: true });
+    } catch (error) {
+      console.error('Webhook error:', error);
+      res.status(500).json({ error: 'Webhook processing failed' });
+    }
+  });
+
+  // Check if user has paid access
+  app.get('/api/payments/check-access', authMiddleware, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { paymentStorage } = await import('./payments');
+      
+      const hasPaidAccess = await paymentStorage.hasUserPaidAccess(userId);
+      
+      res.json({ hasPaidAccess });
+    } catch (error) {
+      console.error('Error checking payment access:', error);
+      res.status(500).json({ message: 'Failed to check access' });
     }
   });
 

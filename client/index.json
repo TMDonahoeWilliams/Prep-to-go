@@ -1,0 +1,86 @@
+{
+  "document": {
+    "doctype": "html",
+    "html": {
+      "lang": "en",
+      "head": {
+        "meta": [
+          {
+            "charset": "UTF-8"
+          },
+          {
+            "name": "viewport",
+            "content": "width=device-width, initial-scale=1.0, maximum-scale=1"
+          },
+          {
+            "name": "description",
+            "content": "A comprehensive college preparation app helping high school seniors and parents manage tasks, deadlines, and documents from senior year through college move-in."
+          }
+        ],
+        "title": "College Prep Organizer - Stay On Track",
+        "links": [
+          {
+            "rel": "icon",
+            "type": "image/png",
+            "href": "/favicon.png"
+          },
+          {
+            "rel": "preconnect",
+            "href": "https://fonts.googleapis.com"
+          },
+          {
+            "rel": "preconnect",
+            "href": "https://fonts.gstatic.com",
+            "crossorigin": true
+          },
+          {
+            "rel": "stylesheet",
+            "href": "https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+          }
+        ]
+      },
+      "body": {
+        "elements": [
+          {
+            "tag": "div",
+            "id": "root"
+          },
+          {
+            "tag": "script",
+            "type": "module",
+            "src": "/src/main.tsx"
+          }
+        ]
+      }
+    }
+  },
+  "metadata": {
+    "app": {
+      "name": "College Prep Organizer",
+      "description": "Stay On Track with your college preparation",
+      "type": "React Application",
+      "entry_point": "/src/main.tsx",
+      "fonts": {
+        "primary": "Inter",
+        "weights": [300, 400, 500, 600, 700]
+      },
+      "favicon": "/favicon.png",
+      "viewport": {
+        "responsive": true,
+        "initial_scale": 1.0,
+        "maximum_scale": 1
+      }
+    },
+    "seo": {
+      "title": "College Prep Organizer - Stay On Track",
+      "description": "A comprehensive college preparation app helping high school seniors and parents manage tasks, deadlines, and documents from senior year through college move-in.",
+      "language": "en"
+    },
+    "performance": {
+      "preconnects": [
+        "https://fonts.googleapis.com",
+        "https://fonts.gstatic.com"
+      ]
+    }
+  }
+}

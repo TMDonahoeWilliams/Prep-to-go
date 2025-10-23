@@ -8,6 +8,8 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { useAuth } from "@/hooks/useAuth";
+import { usePaymentStatus } from "@/hooks/usePaymentStatus";
+import { Paywall } from "@/components/paywall";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
 import Dashboard from "@/pages/dashboard";
@@ -17,21 +19,41 @@ import Documents from "@/pages/documents";
 import Settings from "@/pages/settings";
 
 function Router() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
+  const { data: paymentStatus, isLoading: isPaymentLoading } = usePaymentStatus();
 
+  // Show loading while checking auth or payment status
+  if (isLoading || (isAuthenticated && isPaymentLoading)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  // Show landing page if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <Switch>
+        <Route path="/" component={Landing} />
+        <Route component={NotFound} />
+      </Switch>
+    );
+  }
+
+  // Show paywall if authenticated but hasn't paid
+  if (isAuthenticated && paymentStatus && !paymentStatus.hasPaidAccess) {
+    return <Paywall userEmail={(user as any)?.email} />;
+  }
+
+  // Show main app if authenticated and has paid access
   return (
     <Switch>
-      {isLoading || !isAuthenticated ? (
-        <Route path="/" component={Landing} />
-      ) : (
-        <>
-          <Route path="/" component={Dashboard} />
-          <Route path="/tasks" component={Tasks} />
-          <Route path="/calendar" component={Calendar} />
-          <Route path="/documents" component={Documents} />
-          <Route path="/settings" component={Settings} />
-        </>
-      )}
+      <Route path="/" component={Dashboard} />
+      <Route path="/tasks" component={Tasks} />
+      <Route path="/calendar" component={Calendar} />
+      <Route path="/documents" component={Documents} />
+      <Route path="/settings" component={Settings} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -57,7 +79,7 @@ function AppContent() {
   return (
     <SidebarProvider style={style as React.CSSProperties}>
       <div className="flex h-screen w-full">
-        <AppSidebar user={user} />
+        <AppSidebar user={user as any} />
         <div className="flex flex-col flex-1 overflow-hidden">
           <header className="flex items-center justify-between p-4 border-b bg-background">
             <SidebarTrigger data-testid="button-sidebar-toggle" />
