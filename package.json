@@ -4,12 +4,12 @@
   "description": "A comprehensive college preparation organizer with task management, document tracking, and payment integration",
   "type": "module",
   "license": "MIT",
-  "author": "Your Name <your.email@example.com>",
+  "author": "TMDonahoeWilliams",
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/college-prep-organizer.git"
+    "url": "https://github.com/TMDonahoeWilliams/Prep-to-go.git"
   },
-  "homepage": "https://your-app-domain.com",
+  "homepage": "https://prep-to-go.vercel.app",
   "engines": {
     "node": ">=18.0.0",
     "npm": ">=8.0.0"
