@@ -1,8 +1,8 @@
 // Stripe configuration
 import { loadStripe, Stripe } from '@stripe/stripe-js';
 
-// This is your Stripe publishable key
-const stripePublishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || 'pk_live_51SLSUHKDh7kqOtmPUDOiEl2YXWhc1uycQVTAe3ckVxNtFaRs6Ym86dKpSexqTTRApVy8ye34d3CigL5qjlvvaQLs00MvKWeUg9';
+// This is your Stripe publishable key - only use environment variable
+const stripePublishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
 
 let stripePromise: Promise<Stripe | null>;
 
@@ -17,7 +17,7 @@ export const getStripe = () => {
 export const PRICING_PLANS = {
   BASIC: {
     name: 'Prep-to-go Planner',
-    price: 499, // $4.99 in cents (matching your Stripe price)
+    price: 499, // $4.99 in cents
     currency: 'usd',
     interval: 'one-time',
     description: 'Complete access to the College Prep Organizer',
@@ -31,8 +31,8 @@ export const PRICING_PLANS = {
       'College application tracking',
       'Financial aid organization'
     ],
-    productId: 'prod_TI2kbIeqG7nsw6', // Your product ID
-    stripePriceId: 'price_1SLSezKDh7kqOtmPtAJVZkSx' // Your actual price ID from Stripe
+    productId: import.meta.env.VITE_STRIPE_PRODUCT_ID,
+    stripePriceId: import.meta.env.VITE_STRIPE_PRICE_ID
   }
 };
 
