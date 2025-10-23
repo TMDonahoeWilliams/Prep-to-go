@@ -5,6 +5,11 @@ import { seedCategories } from "./seed";
 
 const app = express();
 
+// Health check endpoint for deployment - responds immediately
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok', service: 'College Prep Organizer' });
+});
+
 declare module 'http' {
   interface IncomingMessage {
     rawBody: unknown

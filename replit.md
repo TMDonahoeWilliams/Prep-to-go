@@ -157,10 +157,12 @@ shared/
 ## Deployment
 
 ### Production Configuration
-- Health check endpoint: `GET /api/health` returns `{ status: 'ok', service: 'College Prep Organizer' }`
-- Frontend served at: `GET /` returns the React application HTML
+- Health check endpoints:
+  - `GET /health` - JSON health status (primary)
+  - `GET /api/health` - JSON health status (backup)
+  - `GET /` - Serves frontend HTML (also valid for health checks)
 - Category seeding: Only runs in development mode to prevent startup delays
-- Server listens on port 5000 (configurable via PORT env variable)
+- Server listens on port 5000, mapped to external port 80
 - Database categories must be seeded manually in production on first deployment
 
 ### Environment Variables
