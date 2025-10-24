@@ -20,6 +20,7 @@ import Tasks from "@/pages/tasks";
 import Calendar from "@/pages/calendar";
 import Documents from "@/pages/documents";
 import Settings from "@/pages/settings";
+import AcceptInvitation from "@/pages/accept-invitation";
 import { useEffect } from "react";
 
 function Router() {
@@ -60,6 +61,7 @@ function Router() {
           // Refresh auth state after complete registration flow
           refreshAuth();
         }} />} />
+        <Route path="/accept-invitation/:token" component={AcceptInvitation} />
         <Route component={NotFound} />
       </Switch>
     );

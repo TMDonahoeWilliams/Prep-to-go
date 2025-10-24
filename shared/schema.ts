@@ -145,12 +145,6 @@ export const updateDocumentSchema = createInsertSchema(documents).omit({
 }).partial();
 
 // Relations
-export const usersRelations = relations(users, ({ many }) => ({
-  tasks: many(tasks),
-  documents: many(documents),
-  subscriptions: many(subscriptions),
-  payments: many(payments),
-}));
 
 export const categoriesRelations = relations(categories, ({ many }) => ({
   tasks: many(tasks),
@@ -213,6 +207,42 @@ export const payments = pgTable("payments", {
 export type Payment = typeof payments.$inferSelect;
 export type UpsertPayment = typeof payments.$inferInsert;
 
+// Parent-Student relationships table
+export const parentStudentRelations = pgTable("parent_student_relations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  parentId: varchar("parent_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  studentId: varchar("student_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type ParentStudentRelation = typeof parentStudentRelations.$inferSelect;
+export type UpsertParentStudentRelation = typeof parentStudentRelations.$inferInsert;
+
+// Student invitations table (for parents to invite students)
+export const studentInvitations = pgTable("student_invitations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  parentId: varchar("parent_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  studentEmail: varchar("student_email").notNull(),
+  studentFirstName: varchar("student_first_name").notNull(),
+  studentLastName: varchar("student_last_name").notNull(),
+  invitationToken: varchar("invitation_token").notNull().unique(),
+  status: varchar("status", { length: 20 }).notNull().default('pending'), // 'pending', 'accepted', 'expired'
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type StudentInvitation = typeof studentInvitations.$inferSelect;
+export type UpsertStudentInvitation = typeof studentInvitations.$inferInsert;
+
+// Student invitation schema for validation
+export const inviteStudentSchema = z.object({
+  studentEmail: z.string().email("Invalid email address"),
+  studentFirstName: z.string().min(1, "First name is required"),
+  studentLastName: z.string().min(1, "Last name is required"),
+});
+
+export type InviteStudent = z.infer<typeof inviteStudentSchema>;
+
 // Subscription relations
 export const subscriptionsRelations = relations(subscriptions, ({ one, many }) => ({
   user: one(users, {
@@ -231,4 +261,34 @@ export const paymentsRelations = relations(payments, ({ one }) => ({
     fields: [payments.subscriptionId],
     references: [subscriptions.id],
   }),
+}));
+
+// Parent-Student relations
+export const parentStudentRelationsRelations = relations(parentStudentRelations, ({ one }) => ({
+  parent: one(users, {
+    fields: [parentStudentRelations.parentId],
+    references: [users.id],
+  }),
+  student: one(users, {
+    fields: [parentStudentRelations.studentId],
+    references: [users.id],
+  }),
+}));
+
+export const studentInvitationsRelations = relations(studentInvitations, ({ one }) => ({
+  parent: one(users, {
+    fields: [studentInvitations.parentId],
+    references: [users.id],
+  }),
+}));
+
+// User relations - add parent/student relationships
+export const usersRelations = relations(users, ({ many }) => ({
+  tasks: many(tasks),
+  categories: many(categories),
+  subscriptions: many(subscriptions),
+  payments: many(payments),
+  parentRelations: many(parentStudentRelations, { relationName: 'parent' }),
+  studentRelations: many(parentStudentRelations, { relationName: 'student' }),
+  studentInvitations: many(studentInvitations),
 }));

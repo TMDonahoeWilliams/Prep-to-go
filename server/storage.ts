@@ -3,6 +3,8 @@ import {
   categories,
   tasks,
   documents,
+  studentInvitations,
+  parentStudentRelations,
   type User,
   type UpsertUser,
   type Category,
@@ -11,6 +13,10 @@ import {
   type InsertTask,
   type Document,
   type InsertDocument,
+  type StudentInvitation,
+  type UpsertStudentInvitation,
+  type ParentStudentRelation,
+  type UpsertParentStudentRelation,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, asc, lt } from "drizzle-orm";
@@ -18,9 +24,30 @@ import { eq, and, desc, asc, lt } from "drizzle-orm";
 export interface IStorage {
   // User operations
   getUser(id: string): Promise<User | undefined>;
+  getUserById(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
+  createUser(user: UpsertUser): Promise<User>;
   upsertUser(user: UpsertUser): Promise<User>;
   updateUserRole(id: string, role: string): Promise<User | undefined>;
+  
+  // Student invitation operations
+  createStudentInvitation(invitation: {
+    parentId: string;
+    studentEmail: string;
+    studentFirstName: string;
+    studentLastName: string;
+  }): Promise<any>;
+  getPendingInvitation(parentId: string, studentEmail: string): Promise<any>;
+  getInvitationByToken(token: string): Promise<any>;
+  getInvitationsForParent(parentId: string): Promise<any[]>;
+  updateInvitationStatus(invitationId: string, status: string): Promise<void>;
+  
+  // Parent-Student relationship operations
+  createParentStudentRelation(relation: {
+    parentId: string;
+    studentId: string;
+  }): Promise<any>;
+  getStudentsForParent(parentId: string): Promise<User[]>;
   
   // Category operations
   getCategories(): Promise<Category[]>;
@@ -56,8 +83,21 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
+  async getUserById(id: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
+  }
+
   async getUserByEmail(email: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user;
+  }
+
+  async createUser(userData: UpsertUser): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values(userData)
+      .returning();
     return user;
   }
 
@@ -219,6 +259,98 @@ export class DatabaseStorage implements IStorage {
       .delete(documents)
       .where(and(eq(documents.id, documentId), eq(documents.userId, userId)));
     return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  // Student invitation operations
+  async createStudentInvitation(invitation: {
+    parentId: string;
+    studentEmail: string;
+    studentFirstName: string;
+    studentLastName: string;
+  }): Promise<StudentInvitation> {
+    const invitationToken = Math.random().toString(36).substring(2) + Date.now().toString(36);
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days from now
+    
+    const [newInvitation] = await db
+      .insert(studentInvitations)
+      .values({
+        ...invitation,
+        invitationToken,
+        expiresAt,
+        status: 'pending',
+      })
+      .returning();
+    return newInvitation;
+  }
+
+  async getPendingInvitation(parentId: string, studentEmail: string): Promise<StudentInvitation | undefined> {
+    const [invitation] = await db
+      .select()
+      .from(studentInvitations)
+      .where(
+        and(
+          eq(studentInvitations.parentId, parentId),
+          eq(studentInvitations.studentEmail, studentEmail),
+          eq(studentInvitations.status, 'pending')
+        )
+      );
+    return invitation;
+  }
+
+  async getInvitationByToken(token: string): Promise<StudentInvitation | undefined> {
+    const [invitation] = await db
+      .select()
+      .from(studentInvitations)
+      .where(eq(studentInvitations.invitationToken, token));
+    return invitation;
+  }
+
+  async getInvitationsForParent(parentId: string): Promise<StudentInvitation[]> {
+    return await db
+      .select()
+      .from(studentInvitations)
+      .where(eq(studentInvitations.parentId, parentId))
+      .orderBy(desc(studentInvitations.createdAt));
+  }
+
+  async updateInvitationStatus(invitationId: string, status: string): Promise<void> {
+    await db
+      .update(studentInvitations)
+      .set({ status })
+      .where(eq(studentInvitations.id, invitationId));
+  }
+
+  // Parent-Student relationship operations
+  async createParentStudentRelation(relation: {
+    parentId: string;
+    studentId: string;
+  }): Promise<ParentStudentRelation> {
+    const [newRelation] = await db
+      .insert(parentStudentRelations)
+      .values(relation)
+      .returning();
+    return newRelation;
+  }
+
+  async getStudentsForParent(parentId: string): Promise<User[]> {
+    const result = await db
+      .select({
+        id: users.id,
+        email: users.email,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        profileImageUrl: users.profileImageUrl,
+        role: users.role,
+        emailVerified: users.emailVerified,
+        createdAt: users.createdAt,
+        updatedAt: users.updatedAt,
+        passwordHash: users.passwordHash,
+      })
+      .from(parentStudentRelations)
+      .innerJoin(users, eq(parentStudentRelations.studentId, users.id))
+      .where(eq(parentStudentRelations.parentId, parentId));
+    
+    return result;
   }
 }
 

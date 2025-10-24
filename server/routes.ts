@@ -9,6 +9,7 @@ import { registerUser, loginUser, logoutUser, requireAuth, attachUser } from "./
 import { insertTaskSchema, updateTaskSchema, insertDocumentSchema, updateDocumentSchema, registerUserSchema, loginUserSchema } from "@shared/schema";
 import { z } from "zod";
 import session from 'express-session';
+import bcrypt from "bcryptjs";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Session configuration
@@ -157,6 +158,131 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating user role:", error);
       res.status(500).json({ message: "Failed to update role" });
+    }
+  });
+
+  // Student invitation routes (for parents)
+  app.post('/api/auth/invite-student', requireAuth, async (req: any, res) => {
+    try {
+      const parentId = req.session.userId;
+      const { studentEmail, studentFirstName, studentLastName } = req.body;
+      
+      // Verify the user is a parent
+      const parent = await storage.getUserById(parentId);
+      if (!parent || parent.role !== 'parent') {
+        return res.status(403).json({ message: "Only parents can invite students" });
+      }
+
+      // Check if student already exists
+      const existingStudent = await storage.getUserByEmail(studentEmail);
+      if (existingStudent) {
+        return res.status(400).json({ message: "A user with this email already exists" });
+      }
+
+      // Check if there's already a pending invitation
+      const existingInvitation = await storage.getPendingInvitation(parentId, studentEmail);
+      if (existingInvitation) {
+        return res.status(400).json({ message: "An invitation is already pending for this email" });
+      }
+
+      // Create invitation
+      const invitation = await storage.createStudentInvitation({
+        parentId,
+        studentEmail,
+        studentFirstName,
+        studentLastName,
+      });
+
+      // TODO: Send email with invitation link
+      // For now, we'll return the invitation token for testing
+      res.json({ 
+        message: "Student invitation created successfully",
+        invitationId: invitation.id,
+        // Remove token from production - should only be sent via email
+        invitationToken: invitation.invitationToken 
+      });
+    } catch (error) {
+      console.error("Error creating student invitation:", error);
+      res.status(500).json({ message: "Failed to create invitation" });
+    }
+  });
+
+  app.get('/api/auth/students', requireAuth, async (req: any, res) => {
+    try {
+      const parentId = req.session.userId;
+      
+      // Verify the user is a parent
+      const parent = await storage.getUserById(parentId);
+      if (!parent || parent.role !== 'parent') {
+        return res.status(403).json({ message: "Only parents can view student accounts" });
+      }
+
+      const students = await storage.getStudentsForParent(parentId);
+      const invitations = await storage.getInvitationsForParent(parentId);
+      
+      res.json({ students, invitations });
+    } catch (error) {
+      console.error("Error fetching students:", error);
+      res.status(500).json({ message: "Failed to fetch students" });
+    }
+  });
+
+  app.post('/api/auth/accept-invitation/:token', async (req, res) => {
+    try {
+      const { token } = req.params;
+      const { email, password, firstName, lastName } = req.body;
+
+      // Find and validate invitation
+      const invitation = await storage.getInvitationByToken(token);
+      if (!invitation) {
+        return res.status(404).json({ message: "Invalid or expired invitation" });
+      }
+
+      if (invitation.status !== 'pending') {
+        return res.status(400).json({ message: "Invitation has already been used" });
+      }
+
+      if (new Date() > invitation.expiresAt) {
+        return res.status(400).json({ message: "Invitation has expired" });
+      }
+
+      if (email !== invitation.studentEmail) {
+        return res.status(400).json({ message: "Email must match the invitation" });
+      }
+
+      // Create student account
+      const hashedPassword = await bcrypt.hash(password, 10);
+      const student = await storage.createUser({
+        email,
+        passwordHash: hashedPassword,
+        firstName,
+        lastName,
+        role: 'student',
+        emailVerified: true, // Auto-verify since invited by parent
+      });
+
+      // Create parent-student relationship
+      await storage.createParentStudentRelation({
+        parentId: invitation.parentId,
+        studentId: student.id,
+      });
+
+      // Mark invitation as accepted
+      await storage.updateInvitationStatus(invitation.id, 'accepted');
+
+      // Seed default tasks for the new student
+      try {
+        const { seedDefaultTasksForUser } = await import('./seedTasks');
+        await seedDefaultTasksForUser(student.id);
+        console.log(`Default tasks seeded for new student ${student.id}`);
+      } catch (seedError) {
+        console.error("Error seeding default tasks for new student:", seedError);
+      }
+
+      res.json({ message: "Student account created successfully" });
+    } catch (error) {
+      console.error("Error accepting invitation:", error);
+      res.status(500).json({ message: "Failed to create student account" });
     }
   });
 
