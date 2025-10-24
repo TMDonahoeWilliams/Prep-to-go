@@ -21,6 +21,7 @@ export function RegistrationFlow({ onComplete }: RegistrationFlowProps) {
     // Store user data in localStorage
     localStorage.setItem('user', JSON.stringify(user));
     localStorage.setItem('isAuthenticated', 'true');
+    localStorage.setItem('newRegistration', 'true'); // Flag to indicate this is a new registration
     setUserData(user);
     setCurrentStep('role');
   };

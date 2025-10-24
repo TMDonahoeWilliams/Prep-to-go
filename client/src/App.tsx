@@ -67,12 +67,37 @@ function Router() {
     );
   }
 
-  // Show role selection if authenticated but no role selected
-  if (isAuthenticated && user && !(user as any)?.role) {
+  // Show role selection only for new registrations that came through the registration flow
+  // Don't show role selection for existing users logging in
+  const isNewRegistration = localStorage.getItem('newRegistration') === 'true';
+  if (isAuthenticated && user && !(user as any)?.role && isNewRegistration) {
     return <RoleSelection onRoleSelected={() => {
+      // Clear the new registration flag
+      localStorage.removeItem('newRegistration');
       // Refresh auth state to get updated role from localStorage
       refreshAuth();
     }} />;
+  }
+
+  // If user is authenticated but has no role and it's NOT a new registration,
+  // redirect them to settings to select their role
+  if (isAuthenticated && user && !(user as any)?.role && !isNewRegistration) {
+    // This shouldn't happen with proper login, but if it does, direct them to settings
+    console.warn('User authenticated without role, redirecting to settings');
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold mb-2">Account Setup Required</h2>
+          <p className="text-muted-foreground mb-4">Please complete your account setup in settings.</p>
+          <button 
+            onClick={() => setLocation('/settings')}
+            className="bg-primary text-primary-foreground px-4 py-2 rounded"
+          >
+            Go to Settings
+          </button>
+        </div>
+      </div>
+    );
   }
 
   // Show paywall if authenticated but hasn't paid

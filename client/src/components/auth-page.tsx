@@ -16,25 +16,20 @@ export function AuthPage({ onAuthSuccess }: AuthPageProps) {
   const handleAuthSuccess = (user: any) => {
     console.log('handleAuthSuccess: Received user data:', user);
     
-    // For login: IGNORE API response if we have existing localStorage data
-    // For registration: Use the registration data that was passed
-    const existingUserData = localStorage.getItem('user');
+    // For login: Use fresh server data to ensure we have the latest role info
+    // For registration: Use the registration data and flag as new registration
     let userToStore = user;
     
-    if (existingUserData && !isLogin) {
-      // This is registration - use the new user data
+    if (!isLogin) {
+      // This is registration - use the new user data and flag as new registration
       console.log('handleAuthSuccess: Registration - using new user data');
+      localStorage.setItem('newRegistration', 'true');
       userToStore = user;
-    } else if (existingUserData && isLogin) {
-      // This is login - preserve existing localStorage data
-      try {
-        const parsedExisting = JSON.parse(existingUserData);
-        console.log('handleAuthSuccess: Login - preserving existing localStorage data:', parsedExisting);
-        userToStore = parsedExisting;
-      } catch (error) {
-        console.error('Failed to parse existing data:', error);
-        userToStore = user;
-      }
+    } else {
+      // This is login - use fresh server data to get latest role information
+      console.log('handleAuthSuccess: Login - using fresh server data for latest role info');
+      localStorage.removeItem('newRegistration'); // Clear any existing flag
+      userToStore = user;
     }
     
     // Never store "Demo User" data
