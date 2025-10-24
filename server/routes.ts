@@ -98,7 +98,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // User logout
+  // User logout (GET route for direct link access)
+  app.get('/api/logout', async (req: any, res) => {
+    try {
+      // Clear session if it exists
+      if (req.session) {
+        await logoutUser(req);
+      }
+      // Redirect to landing page
+      res.redirect('/');
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Even if logout fails, redirect to landing page
+      res.redirect('/');
+    }
+  });
+
+  // User logout (POST route for API calls)
   app.post('/api/auth/logout', requireAuth, async (req: any, res) => {
     try {
       await logoutUser(req);

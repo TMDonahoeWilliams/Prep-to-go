@@ -26,11 +26,13 @@ import { useTheme } from "@/components/theme-provider";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState } from "react";
+import { useLocation } from "wouter";
 
 export default function Settings() {
   const { user } = useAuth();
   const { toast } = useToast();
   const { theme } = useTheme();
+  const [, setLocation] = useLocation();
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   const [inviteForm, setInviteForm] = useState({
     studentEmail: '',
@@ -96,6 +98,33 @@ export default function Settings() {
       });
     },
   });
+
+  const handleLogout = async () => {
+    try {
+      // Clear localStorage first
+      localStorage.removeItem('user');
+      localStorage.removeItem('isAuthenticated');
+      localStorage.removeItem('paymentStatus');
+      
+      // Call the logout API
+      await fetch('/api/logout', { method: 'GET' });
+      
+      // Redirect to landing page
+      setLocation('/');
+      
+      toast({
+        title: "Logged out successfully",
+        description: "You have been logged out of your account.",
+      });
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Even if API call fails, clear localStorage and redirect
+      localStorage.removeItem('user');
+      localStorage.removeItem('isAuthenticated');
+      localStorage.removeItem('paymentStatus');
+      setLocation('/');
+    }
+  };
 
   if (!user) {
     return (
@@ -295,10 +324,10 @@ export default function Settings() {
         <h2 className="text-lg font-semibold mb-4">Account</h2>
         <Button
           variant="outline"
-          asChild
+          onClick={handleLogout}
           data-testid="button-logout"
         >
-          <a href="/api/logout">Log Out</a>
+          Log Out
         </Button>
       </Card>
     </div>
