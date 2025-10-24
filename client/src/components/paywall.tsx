@@ -7,9 +7,11 @@ import { PaymentModal } from "./payment-modal";
 
 interface PaywallProps {
   userEmail?: string;
+  onPaymentComplete?: () => void;
+  isPartOfRegistration?: boolean;
 }
 
-export function Paywall({ userEmail }: PaywallProps) {
+export function Paywall({ userEmail, onPaymentComplete, isPartOfRegistration = false }: PaywallProps) {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
 
   return (
@@ -166,6 +168,7 @@ export function Paywall({ userEmail }: PaywallProps) {
         isOpen={showPaymentModal}
         onClose={() => setShowPaymentModal(false)}
         userEmail={userEmail}
+        onPaymentComplete={onPaymentComplete}
       />
     </div>
   );

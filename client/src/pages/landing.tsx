@@ -23,7 +23,7 @@ export default function Landing() {
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button
                 size="lg"
-                onClick={() => setLocation('/auth')}
+                onClick={() => setLocation('/register')}
                 className="text-lg px-8"
                 data-testid="button-get-started"
               >

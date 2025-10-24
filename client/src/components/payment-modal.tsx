@@ -11,9 +11,10 @@ interface PaymentModalProps {
   isOpen: boolean;
   onClose: () => void;
   userEmail?: string;
+  onPaymentComplete?: () => void;
 }
 
-export function PaymentModal({ isOpen, onClose, userEmail }: PaymentModalProps) {
+export function PaymentModal({ isOpen, onClose, userEmail, onPaymentComplete }: PaymentModalProps) {
   const [showCheckout, setShowCheckout] = useState(false);
   const plan = PRICING_PLANS.BASIC;
 
@@ -34,7 +35,11 @@ export function PaymentModal({ isOpen, onClose, userEmail }: PaymentModalProps) 
             userEmail={userEmail}
             onSuccess={() => {
               onClose();
-              window.location.reload(); // Refresh to show paid content
+              if (onPaymentComplete) {
+                onPaymentComplete();
+              } else {
+                window.location.reload(); // Refresh to show paid content
+              }
             }}
             onCancel={() => setShowCheckout(false)}
           />

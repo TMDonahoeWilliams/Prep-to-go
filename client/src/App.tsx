@@ -12,6 +12,7 @@ import { usePaymentStatus } from "@/hooks/usePaymentStatus";
 import { Paywall } from "@/components/paywall";
 import { RoleSelection } from "@/components/role-selection";
 import { AuthPage } from "@/components/auth-page";
+import { RegistrationFlow } from "@/components/registration-flow";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
 import Dashboard from "@/pages/dashboard";
@@ -43,6 +44,10 @@ function Router() {
           // Refresh auth state to re-read from localStorage
           refreshAuth();
         }} />} />
+        <Route path="/register" component={() => <RegistrationFlow onComplete={() => {
+          // Refresh auth state after complete registration flow
+          refreshAuth();
+        }} />} />
         <Route component={NotFound} />
       </Switch>
     );
@@ -62,34 +67,10 @@ function Router() {
   }
 
   // Show main app if authenticated and has paid access
-  return (
-    <Switch>
-      <Route path="/" component={Dashboard} />
-      <Route path="/tasks" component={Tasks} />
-      <Route path="/calendar" component={Calendar} />
-      <Route path="/documents" component={Documents} />
-      <Route path="/settings" component={Settings} />
-      <Route component={NotFound} />
-    </Switch>
-  );
-}
-
-function AppContent() {
-  const { isAuthenticated, isLoading, user } = useAuth();
-
   const style = {
     "--sidebar-width": "16rem",
     "--sidebar-width-icon": "3rem",
   };
-
-  if (isLoading || !isAuthenticated) {
-    return (
-      <>
-        <Router />
-        <Toaster />
-      </>
-    );
-  }
 
   return (
     <SidebarProvider style={style as React.CSSProperties}>
@@ -101,12 +82,27 @@ function AppContent() {
             <ThemeToggle />
           </header>
           <main className="flex-1 overflow-y-auto p-6">
-            <Router />
+            <Switch>
+              <Route path="/" component={Dashboard} />
+              <Route path="/tasks" component={Tasks} />
+              <Route path="/calendar" component={Calendar} />
+              <Route path="/documents" component={Documents} />
+              <Route path="/settings" component={Settings} />
+              <Route component={NotFound} />
+            </Switch>
           </main>
         </div>
       </div>
-      <Toaster />
     </SidebarProvider>
+  );
+}
+
+function AppContent() {
+  return (
+    <>
+      <Router />
+      <Toaster />
+    </>
   );
 }
 
