@@ -8,17 +8,29 @@ import { eq } from 'drizzle-orm';
 neonConfig.fetchConnectionCache = true;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // Set CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  // Handle preflight
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   // Only handle GET requests
   if (req.method !== 'GET') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
   try {
-    // For serverless deployment, we'll use a simple demo user approach
+    console.log('User data request received');
+
+    // For serverless deployment demo, check localStorage data on client side
     // In a real production app, you'd implement proper JWT/session handling
     
     // Return a demo user that triggers role selection
-    res.status(200).json({
+    const demoUser = {
       id: "demo-user-vercel",
       email: "demo@collegeprep.app",
       firstName: "Demo",
@@ -28,12 +40,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       emailVerified: true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-    });
+    };
+
+    console.log('Returning demo user data');
+    
+    return res.status(200).json(demoUser);
     
   } catch (error: any) {
     console.error('User fetch error:', error);
-    res.status(500).json({ 
-      message: error.message || 'Failed to fetch user'
+    return res.status(500).json({ 
+      message: error.message || 'Failed to fetch user',
+      error: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 }
