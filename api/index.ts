@@ -42,40 +42,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   }
 
-  // Handle user info endpoint
-  if ((url.includes('/auth/user') || url === '/auth/user') && method === 'GET') {
-    return res.json({
-      id: "dev-user-123",
-      email: "dev@example.com",
-      firstName: "Development", 
-      lastName: "User",
-      profileImageUrl: null,
-      role: null,  // No role initially - will trigger role selection
-      createdAt: new Date().toISOString()
-    });
-  }
-
-  // Handle user role update
-  if ((url.includes('/auth/user/role') || url === '/auth/user/role') && method === 'PATCH') {
-    // Get role from request body
-    const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-    const { role } = body || {};
-    
-    if (!role || !['student', 'parent'].includes(role)) {
-      return res.status(400).json({ message: "Invalid role" });
-    }
-
-    // Return updated user with role
-    return res.json({
-      id: "dev-user-123",
-      email: "dev@example.com", 
-      firstName: "Development",
-      lastName: "User",
-      profileImageUrl: null,
-      role: role,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    });
+  // For production, these endpoints are handled by the main server
+  // Return 404 for auth endpoints that should be handled by server/routes.ts
+  if (url.includes('/auth/')) {
+    return res.status(404).json({ message: "Authentication endpoints are handled by the main server" });
   }
   
   // Default response with debug info

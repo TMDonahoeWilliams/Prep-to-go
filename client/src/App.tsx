@@ -11,6 +11,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { usePaymentStatus } from "@/hooks/usePaymentStatus";
 import { Paywall } from "@/components/paywall";
 import { RoleSelection } from "@/components/role-selection";
+import { AuthPage } from "@/components/auth-page";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
 import Dashboard from "@/pages/dashboard";
@@ -33,11 +34,14 @@ function Router() {
     );
   }
 
-  // Show landing page if not authenticated
+  // Show authentication page if not authenticated
   if (!isAuthenticated) {
     return (
       <Switch>
-        <Route path="/" component={Landing} />
+        <Route path="/" component={() => <AuthPage onAuthSuccess={() => {
+          // Refetch user data after successful authentication
+          queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+        }} />} />
         <Route component={NotFound} />
       </Switch>
     );

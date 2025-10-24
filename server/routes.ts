@@ -5,10 +5,27 @@ import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { setupDevAuth, isDevAuthenticated } from "./devAuth";
 import { requirePaidAccess } from "./paymentMiddleware";
-import { insertTaskSchema, updateTaskSchema, insertDocumentSchema, updateDocumentSchema } from "@shared/schema";
+import { registerUser, loginUser, logoutUser, requireAuth, attachUser } from "./auth";
+import { insertTaskSchema, updateTaskSchema, insertDocumentSchema, updateDocumentSchema, registerUserSchema, loginUserSchema } from "@shared/schema";
 import { z } from "zod";
+import session from 'express-session';
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Session configuration
+  app.use(session({
+    secret: process.env.SESSION_SECRET || 'your-secret-key-change-in-production',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: process.env.NODE_ENV === 'production',
+      httpOnly: true,
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    },
+  }));
+
+  // Attach user to all requests
+  app.use(attachUser);
+
   // Health check endpoint for deployment (must not conflict with frontend serving)
   app.get('/api/health', (req, res) => {
     res.status(200).json({ status: 'ok', service: 'College Prep Organizer' });
@@ -24,64 +41,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
-  // Auth middleware - use dev auth in development, real auth in production
-  const isDevelopment = process.env.NODE_ENV === 'development';
-  const useDevAuth = isDevelopment || process.env.DEV_AUTH === 'true';
-  const authMiddleware = useDevAuth ? isDevAuthenticated : isAuthenticated;
-
-  if (useDevAuth) {
-    console.log("🔧 Using development authentication");
-    await setupDevAuth(app);
-  } else {
-    console.log("🔐 Using production authentication");
-    await setupAuth(app);
-  }
-
-  // Fallback login route in case auth setup doesn't work
-  app.get('/api/login-fallback', async (req: any, res) => {
-    console.log("🔄 Fallback login route accessed");
-    
-    // If using dev auth, simulate user session
-    if (useDevAuth) {
-      try {
-        // Create the dev user if it doesn't exist
-        const { storage } = await import('./storage');
-        await storage.upsertUser({
-          id: "dev-user-123",
-          email: "dev@example.com", 
-          firstName: "Development",
-          lastName: "User",
-          profileImageUrl: null,
-        });
-        console.log("✅ Dev user created/verified");
-      } catch (error) {
-        console.error("❌ Error with dev user:", error);
-      }
+  // Production authentication routes
+  
+  // User registration
+  app.post('/api/auth/register', async (req, res) => {
+    try {
+      const user = await registerUser(req.body);
+      // Create session
+      (req as any).session.userId = user.id;
+      // Return user without password hash
+      res.status(201).json({
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        profileImageUrl: user.profileImageUrl,
+        role: user.role,
+        emailVerified: user.emailVerified,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      });
+    } catch (error: any) {
+      console.error('Registration error:', error);
+      res.status(400).json({ 
+        message: error.message || 'Registration failed',
+        errors: error.errors || []
+      });
     }
-    
-    res.redirect('/');
+  });
+
+  // User login
+  app.post('/api/auth/login', async (req, res) => {
+    try {
+      const user = await loginUser(req.body);
+      // Create session
+      (req as any).session.userId = user.id;
+      res.json({
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        profileImageUrl: user.profileImageUrl,
+        role: user.role,
+        emailVerified: user.emailVerified,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      });
+    } catch (error: any) {
+      console.error('Login error:', error);
+      res.status(401).json({ 
+        message: error.message || 'Login failed' 
+      });
+    }
+  });
+
+  // User logout
+  app.post('/api/auth/logout', requireAuth, async (req: any, res) => {
+    try {
+      await logoutUser(req);
+      res.json({ message: 'Logged out successfully' });
+    } catch (error) {
+      console.error('Logout error:', error);
+      res.status(500).json({ message: 'Logout failed' });
+    }
   });
 
     // Auth routes
-  app.get('/api/auth/user', authMiddleware, async (req: any, res) => {
+  app.get('/api/auth/user', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.session.userId;
       const user = await storage.getUser(userId);
       
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
       
-      res.json(user);
+      // Return user without password hash
+      const { passwordHash, ...userWithoutPassword } = user;
+      res.json(userWithoutPassword);
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
     }
   });
 
-  app.patch('/api/auth/user/role', authMiddleware, async (req: any, res) => {
+  app.patch('/api/auth/user/role', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.session.userId;
       const { role } = req.body;
       
       if (!role || !['student', 'parent'].includes(role)) {
@@ -89,7 +135,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const user = await storage.updateUserRole(userId, role);
-      res.json(user);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Return user without password hash
+      const { passwordHash, ...userWithoutPassword } = user;
+      res.json(userWithoutPassword);
     } catch (error) {
       console.error("Error updating user role:", error);
       res.status(500).json({ message: "Failed to update role" });
@@ -97,7 +149,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Category routes - require payment
-  app.get('/api/categories', authMiddleware, requirePaidAccess, async (req, res) => {
+  app.get('/api/categories', requireAuth, requirePaidAccess, async (req, res) => {
     try {
       const categories = await storage.getCategories();
       res.json(categories);
@@ -108,9 +160,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Task routes - require payment
-  app.get('/api/tasks', authMiddleware, requirePaidAccess, async (req: any, res) => {
+  app.get('/api/tasks', requireAuth, requirePaidAccess, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.session.userId;
       const tasksWithCategories = await storage.getUserTasksWithCategories(userId);
       res.json(tasksWithCategories);
     } catch (error) {
@@ -119,9 +171,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/tasks/stats', authMiddleware, async (req: any, res) => {
+  app.get('/api/tasks/stats', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.session.userId;
       const stats = await storage.getTaskStats(userId);
       res.json(stats);
     } catch (error) {
@@ -130,9 +182,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/tasks', authMiddleware, async (req: any, res) => {
+  app.post('/api/tasks', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.session.userId;
       const { title, description, category, deadline, priority } = req.body;
       
       const newTask = await storage.createTask({
@@ -151,9 +203,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/tasks', authMiddleware, async (req: any, res) => {
+  app.get('/api/tasks', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.session.userId;
       const tasks = await storage.getUserTasks(userId);
       res.json(tasks);
     } catch (error) {
@@ -162,9 +214,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/tasks/:id', authMiddleware, async (req: any, res) => {
+  app.patch('/api/tasks/:id', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.session.userId;
       const { id } = req.params;
       const validated = updateTaskSchema.parse(req.body);
       
@@ -184,9 +236,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/tasks/:id', authMiddleware, async (req: any, res) => {
+  app.delete('/api/tasks/:id', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.session.userId;
       const { id } = req.params;
       
       const deleted = await storage.deleteTask(userId, id);
@@ -203,9 +255,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Document routes
-  app.get('/api/documents', authMiddleware, async (req: any, res) => {
+  app.get('/api/documents', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.session.userId;
       const documents = await storage.getUserDocuments(userId);
       res.json(documents);
     } catch (error) {
@@ -214,9 +266,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/documents', authMiddleware, async (req: any, res) => {
+  app.post('/api/documents', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.session.userId;
       const validated = insertDocumentSchema.parse(req.body);
       
       const document = await storage.createDocument({
@@ -234,9 +286,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/documents/:id', authMiddleware, async (req: any, res) => {
+  app.patch('/api/documents/:id', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.session.userId;
       const { id } = req.params;
       const validated = updateDocumentSchema.parse(req.body);
       
@@ -256,9 +308,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/documents/:id', authMiddleware, async (req: any, res) => {
+  app.delete('/api/documents/:id', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.session.userId;
       const { id } = req.params;
       
       const deleted = await storage.deleteDocument(userId, id);
@@ -412,9 +464,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Check if user has paid access
-  app.get('/api/payments/check-access', authMiddleware, async (req: any, res) => {
+  app.get('/api/payments/check-access', requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.session.userId;
       const { paymentStorage } = await import('./payments');
       
       const hasPaidAccess = await paymentStorage.hasUserPaidAccess(userId);
