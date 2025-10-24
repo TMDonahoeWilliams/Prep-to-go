@@ -16,9 +16,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Auth middleware - use dev auth in development, real auth in production
   const isDevelopment = process.env.NODE_ENV === 'development';
-  const authMiddleware = isDevelopment ? isDevAuthenticated : isAuthenticated;
+  const useDevAuth = isDevelopment || process.env.DEV_AUTH === 'true';
+  const authMiddleware = useDevAuth ? isDevAuthenticated : isAuthenticated;
 
-  if (isDevelopment) {
+  if (useDevAuth) {
     console.log("🔧 Using development authentication");
     await setupDevAuth(app);
   } else {
