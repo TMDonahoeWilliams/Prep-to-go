@@ -130,7 +130,7 @@ export default function Tasks() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold" data-testid="text-page-title">Tasks</h1>
-          <p className="text-muted-foreground mt-1">Manage your college prep checklist</p>
+          <p className="text-muted-foreground mt-1">Your comprehensive college prep checklist with FAFSA, application deadlines, and scholarship opportunities</p>
         </div>
         <Button 
           onClick={() => {
@@ -143,6 +143,34 @@ export default function Tasks() {
           New Task
         </Button>
       </div>
+
+      {/* Important Deadlines Alert */}
+      {tasks.some(task => task.priority === 'urgent' && task.status === 'pending') && (
+        <Card className="p-4 border-destructive bg-destructive/5">
+          <div className="flex items-center gap-2">
+            <div className="h-2 w-2 bg-destructive rounded-full animate-pulse"></div>
+            <h3 className="font-semibold text-destructive">Urgent Deadlines Coming Up!</h3>
+          </div>
+          <p className="text-sm text-muted-foreground mt-1">
+            You have {tasks.filter(t => t.priority === 'urgent' && t.status === 'pending').length} urgent tasks requiring immediate attention.
+          </p>
+          <div className="mt-3 space-y-1">
+            {tasks
+              .filter(t => t.priority === 'urgent' && t.status === 'pending')
+              .slice(0, 3)
+              .map(task => (
+                <div key={task.id} className="text-sm">
+                  <span className="font-medium">{task.title}</span>
+                  {task.dueDate && (
+                    <span className="text-muted-foreground ml-2">
+                      Due: {new Date(task.dueDate).toLocaleDateString()}
+                    </span>
+                  )}
+                </div>
+              ))}
+          </div>
+        </Card>
+      )}
 
       {/* Filters */}
       <Card className="p-4">

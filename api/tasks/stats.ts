@@ -18,12 +18,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    // Demo task stats - in production, this would be calculated from the database
+    // Demo task stats - calculated from comprehensive default tasks
+    const today = new Date();
     const stats = {
-      totalTasks: 5,
+      totalTasks: 16, // Total comprehensive default tasks
       completedTasks: 0,
-      overdueTasks: 1, // FAFSA is overdue as of March 2025
-      upcomingTasks: 4, // Tasks due in the future
+      overdueTasks: 3, // National Merit, Early Decision, UC System deadlines have passed
+      upcomingTasks: 13, // Tasks due in the future
     };
 
     return res.status(200).json(stats);
