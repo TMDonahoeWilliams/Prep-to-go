@@ -8,27 +8,46 @@ const loginSchema = z.object({
 });
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Set CORS headers
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-  // Handle preflight
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
-  // Only handle POST requests
-  if (req.method !== 'POST') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
-
   try {
-    // Log the request for debugging
-    console.log('Login request:', req.body);
+    // Set CORS headers first
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Content-Type', 'application/json');
 
-    // Validate request body
-    const validatedData = loginSchema.parse(req.body);
+    // Handle preflight
+    if (req.method === 'OPTIONS') {
+      return res.status(200).json({ message: 'OK' });
+    }
+
+    // Only handle POST requests
+    if (req.method !== 'POST') {
+      return res.status(405).json({ message: 'Method not allowed' });
+    }
+
+    // Log the request for debugging
+    console.log('Login request received:', JSON.stringify(req.body));
+
+    // Validate request body exists
+    if (!req.body) {
+      return res.status(400).json({ message: 'Request body is required' });
+    }
+
+    // Validate request body with Zod
+    const validationResult = loginSchema.safeParse(req.body);
+    
+    if (!validationResult.success) {
+      console.log('Validation failed:', validationResult.error);
+      return res.status(400).json({ 
+        message: 'Validation failed',
+        errors: validationResult.error.errors.map(err => ({
+          field: err.path.join('.'),
+          message: err.message
+        }))
+      });
+    }
+
+    const validatedData = validationResult.data;
     
     // For demo purposes, simulate user lookup
     // In a real production app, you would query your database here
@@ -71,19 +90,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   } catch (error: any) {
     console.error('Login error:', error);
     
-    if (error instanceof z.ZodError) {
-      return res.status(400).json({ 
-        message: 'Validation failed',
-        errors: error.errors.map(err => ({
-          field: err.path.join('.'),
-          message: err.message
-        }))
+    // Ensure we always return JSON, even on errors
+    try {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          message: 'Validation failed',
+          errors: error.errors.map(err => ({
+            field: err.path.join('.'),
+            message: err.message
+          }))
+        });
+      }
+      
+      return res.status(500).json({ 
+        message: error.message || 'Login failed',
+        error: process.env.NODE_ENV === 'development' ? error.stack : undefined
       });
+    } catch (jsonError) {
+      // If JSON fails, return plain text
+      res.setHeader('Content-Type', 'text/plain');
+      return res.status(500).send('Internal server error');
     }
-    
-    return res.status(500).json({ 
-      message: error.message || 'Login failed',
-      error: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    });
   }
 }
