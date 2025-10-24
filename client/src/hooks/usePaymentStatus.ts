@@ -4,6 +4,20 @@ export function usePaymentStatus() {
   return useQuery({
     queryKey: ["/api/payments/check-access"],
     queryFn: async () => {
+      // First check localStorage for demo payment status
+      const localPaymentStatus = localStorage.getItem('paymentStatus');
+      if (localPaymentStatus) {
+        try {
+          const parsedStatus = JSON.parse(localPaymentStatus);
+          if (parsedStatus.hasPaidAccess) {
+            return parsedStatus;
+          }
+        } catch (error) {
+          console.error('Failed to parse local payment status:', error);
+        }
+      }
+
+      // If no local payment status, check API
       const response = await fetch("/api/payments/check-access", {
         credentials: 'include',
       });

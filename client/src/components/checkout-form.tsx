@@ -64,12 +64,39 @@ export function CheckoutForm({
         throw new Error(data.error || 'Payment failed');
       }
 
-      // For now, simulate successful payment
-      // In production, you'd integrate with Stripe Elements here
-      setTimeout(() => {
-        setIsLoading(false);
-        onSuccess();
-      }, 2000);
+      // Simulate payment processing delay
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // Confirm the payment
+      const confirmResponse = await fetch('/api/payments/confirm-payment', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          paymentIntentId: data.paymentIntent.id,
+          userEmail: formData.email,
+        }),
+        credentials: 'include',
+      });
+
+      const confirmData = await confirmResponse.json();
+
+      if (!confirmResponse.ok) {
+        throw new Error(confirmData.message || 'Payment confirmation failed');
+      }
+
+      // Store payment success in localStorage for demo
+      localStorage.setItem('paymentStatus', JSON.stringify({
+        hasPaidAccess: true,
+        subscriptionStatus: 'active',
+        planType: 'basic',
+        confirmedAt: new Date().toISOString(),
+      }));
+
+      console.log('Payment completed successfully');
+      setIsLoading(false);
+      onSuccess();
 
     } catch (err) {
       setIsLoading(false);

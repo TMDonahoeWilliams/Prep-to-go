@@ -20,14 +20,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     console.log('Payment access check requested');
 
-    // For demo purposes, return that user hasn't paid
+    // For demo purposes, check if user has completed payment in this session
     // In a real app, you'd check the database for payment records
+    // We'll simulate payment status - in demo, all users start unpaid
     const paymentStatus = {
-      hasPaidAccess: false, // Set to false to show paywall
+      hasPaidAccess: false, // Always false for demo - user must go through payment flow
       subscriptionStatus: 'inactive',
       planType: null,
       expiresAt: null,
       trialEndsAt: null,
+      message: 'Demo mode - complete payment flow to access app'
     };
 
     console.log('Returning payment status:', paymentStatus);
