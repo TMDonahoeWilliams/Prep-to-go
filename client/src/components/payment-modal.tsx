@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Check, CreditCard, Shield, Clock } from "lucide-react";
 import { PRICING_PLANS } from "@/lib/stripe";
 import { CheckoutForm } from "./checkout-form.tsx";
+import { useLocation } from "wouter";
 
 interface PaymentModalProps {
   isOpen: boolean;
@@ -17,6 +18,7 @@ interface PaymentModalProps {
 export function PaymentModal({ isOpen, onClose, userEmail, onPaymentComplete }: PaymentModalProps) {
   const [showCheckout, setShowCheckout] = useState(false);
   const plan = PRICING_PLANS.BASIC;
+  const [, setLocation] = useLocation();
 
   if (showCheckout) {
     return (
@@ -38,7 +40,8 @@ export function PaymentModal({ isOpen, onClose, userEmail, onPaymentComplete }: 
               if (onPaymentComplete) {
                 onPaymentComplete();
               } else {
-                window.location.reload(); // Refresh to show paid content
+                // Navigate to dashboard explicitly after payment
+                setLocation('/');
               }
             }}
             onCancel={() => setShowCheckout(false)}

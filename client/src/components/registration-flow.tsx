@@ -3,6 +3,7 @@ import { RegisterForm } from "@/components/register-form";
 import { RoleSelection } from "@/components/role-selection";
 import { Paywall } from "@/components/paywall";
 import { useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 
 interface RegistrationFlowProps {
   onComplete: () => void;
@@ -14,6 +15,7 @@ export function RegistrationFlow({ onComplete }: RegistrationFlowProps) {
   const [currentStep, setCurrentStep] = useState<RegistrationStep>('register');
   const [userData, setUserData] = useState<any>(null);
   const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
 
   const handleRegistrationSuccess = (user: any) => {
     // Store user data in localStorage
@@ -43,7 +45,7 @@ export function RegistrationFlow({ onComplete }: RegistrationFlowProps) {
               onSuccess={handleRegistrationSuccess}
               onSwitchToLogin={() => {
                 // Switch to login by going back to auth page
-                window.location.href = '/auth';
+                setLocation('/auth');
               }}
             />
           </div>

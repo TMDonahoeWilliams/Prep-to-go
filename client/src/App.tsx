@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -20,11 +20,23 @@ import Tasks from "@/pages/tasks";
 import Calendar from "@/pages/calendar";
 import Documents from "@/pages/documents";
 import Settings from "@/pages/settings";
+import { useEffect } from "react";
 
 function Router() {
   const { user, isAuthenticated, isLoading, refreshAuth } = useAuth();
   const { data: paymentStatus, isLoading: isPaymentLoading } = usePaymentStatus();
   const queryClient = useQueryClient();
+  const [location, setLocation] = useLocation();
+  
+  // Redirect authenticated users with paid access to dashboard if they're on auth/register routes
+  useEffect(() => {
+    if (isAuthenticated && user && (user as any)?.role && paymentStatus?.hasPaidAccess) {
+      if (location === '/auth' || location === '/register') {
+        console.log('Redirecting authenticated user to dashboard');
+        setLocation('/');
+      }
+    }
+  }, [isAuthenticated, user, paymentStatus, location, setLocation]);
 
   // Show loading while checking auth or payment status
   if (isLoading || (isAuthenticated && isPaymentLoading)) {

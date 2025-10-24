@@ -2,6 +2,7 @@ import { useState } from "react";
 import { LoginForm } from "@/components/login-form";
 import { RegisterForm } from "@/components/register-form";
 import { useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 
 interface AuthPageProps {
   onAuthSuccess: () => void;
@@ -10,6 +11,7 @@ interface AuthPageProps {
 export function AuthPage({ onAuthSuccess }: AuthPageProps) {
   const [isLogin, setIsLogin] = useState(true);
   const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
 
   const handleAuthSuccess = (user: any) => {
     console.log('handleAuthSuccess: Received user data:', user);
