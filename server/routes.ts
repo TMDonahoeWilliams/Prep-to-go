@@ -140,6 +140,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
+
+      // Seed default tasks for the user after role selection
+      try {
+        const { seedDefaultTasksForUser } = await import('./seedTasks');
+        await seedDefaultTasksForUser(userId);
+        console.log(`Default tasks seeded for user ${userId} with role ${role}`);
+      } catch (seedError) {
+        console.error("Error seeding default tasks:", seedError);
+        // Don't fail the role update if task seeding fails
+      }
       
       // Return user without password hash
       const { passwordHash, ...userWithoutPassword } = user;
@@ -165,7 +175,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/tasks', requireAuth, requirePaidAccess, async (req: any, res) => {
     try {
       const userId = req.session.userId;
-      const tasksWithCategories = await storage.getUserTasksWithCategories(userId);
+      let tasksWithCategories = await storage.getUserTasksWithCategories(userId);
+      
+      // If user has no tasks, seed default tasks
+      if (tasksWithCategories.length === 0) {
+        try {
+          const { seedDefaultTasksForUser } = await import('./seedTasks');
+          await seedDefaultTasksForUser(userId);
+          console.log(`Default tasks seeded for existing user ${userId}`);
+          // Fetch tasks again after seeding
+          tasksWithCategories = await storage.getUserTasksWithCategories(userId);
+        } catch (seedError) {
+          console.error("Error seeding default tasks for existing user:", seedError);
+        }
+      }
+      
       res.json(tasksWithCategories);
     } catch (error) {
       console.error("Error fetching tasks:", error);
@@ -208,7 +232,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/tasks', requireAuth, async (req: any, res) => {
     try {
       const userId = req.session.userId;
-      const tasks = await storage.getUserTasks(userId);
+      let tasks = await storage.getUserTasks(userId);
+      
+      // If user has no tasks, seed default tasks
+      if (tasks.length === 0) {
+        try {
+          const { seedDefaultTasksForUser } = await import('./seedTasks');
+          await seedDefaultTasksForUser(userId);
+          console.log(`Default tasks seeded for existing user ${userId}`);
+          // Fetch tasks again after seeding
+          tasks = await storage.getUserTasks(userId);
+        } catch (seedError) {
+          console.error("Error seeding default tasks for existing user:", seedError);
+        }
+      }
+      
       res.json(tasks);
     } catch (error) {
       console.error("Error fetching tasks:", error);
