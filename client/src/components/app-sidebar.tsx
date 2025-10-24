@@ -30,6 +30,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "@/hooks/use-toast";
 import type { User } from "@shared/schema";
 
 const menuItems = [
@@ -65,7 +66,48 @@ interface AppSidebarProps {
 }
 
 export function AppSidebar({ user }: AppSidebarProps) {
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
+
+  const handleLogout = async () => {
+    try {
+      // Clear localStorage first (most important part)
+      localStorage.removeItem('user');
+      localStorage.removeItem('isAuthenticated');
+      localStorage.removeItem('paymentStatus');
+      localStorage.removeItem('newRegistration');
+      
+      // Try to call the logout API (optional - main logic is localStorage clearing)
+      try {
+        const response = await fetch('/api/logout', { 
+          method: 'GET',
+          credentials: 'include' // Include cookies if any
+        });
+        
+        if (!response.ok) {
+          console.warn('Logout API returned non-OK status:', response.status);
+        }
+      } catch (apiError) {
+        console.warn('Logout API call failed (non-critical):', apiError);
+        // Continue with logout process even if API fails
+      }
+      
+      // Redirect to landing page
+      setLocation('/');
+      
+      toast({
+        title: "Logged out successfully",
+        description: "You have been logged out of your account.",
+      });
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Even if everything fails, clear localStorage and redirect
+      localStorage.removeItem('user');
+      localStorage.removeItem('isAuthenticated');
+      localStorage.removeItem('paymentStatus');
+      localStorage.removeItem('newRegistration');
+      setLocation('/');
+    }
+  };
 
   const initials = user?.firstName && user?.lastName
     ? `${user.firstName[0]}${user.lastName[0]}`
@@ -138,10 +180,8 @@ export function AppSidebar({ user }: AppSidebarProps) {
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <a href="/api/logout" data-testid="link-logout">
-                Log out
-              </a>
+            <DropdownMenuItem onClick={handleLogout} data-testid="button-logout">
+              Log out
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
