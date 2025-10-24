@@ -1,11 +1,4 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { drizzle } from 'drizzle-orm/neon-serverless';
-import { Pool, neonConfig } from '@neondatabase/serverless';
-import { users } from '../../shared/schema';
-import { eq } from 'drizzle-orm';
-
-// Configure Neon for serverless
-neonConfig.fetchConnectionCache = true;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Set CORS headers
@@ -26,13 +19,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     console.log('User data request received');
 
-    // For serverless deployment demo, check localStorage data on client side
+    // For serverless deployment demo, the client should rely on localStorage
+    // This endpoint is mainly used as a fallback if no localStorage data exists
     // In a real production app, you'd implement proper JWT/session handling
     
-    // Return a demo user that triggers role selection
-    const demoUser = {
-      id: "demo-user-vercel",
-      email: "demo@collegeprep.app",
+    // Return a generic demo user - client should use localStorage data instead
+    const fallbackUser = {
+      id: "demo-user-fallback",
+      email: "user@demo.app",
       firstName: "Demo",
       lastName: "User",
       profileImageUrl: null,
@@ -42,9 +36,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       updatedAt: new Date().toISOString(),
     };
 
-    console.log('Returning demo user data');
+    console.log('Returning fallback user data - client should use localStorage');
     
-    return res.status(200).json(demoUser);
+    return res.status(200).json(fallbackUser);
     
   } catch (error: any) {
     console.error('User fetch error:', error);

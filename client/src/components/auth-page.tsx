@@ -12,8 +12,27 @@ export function AuthPage({ onAuthSuccess }: AuthPageProps) {
   const queryClient = useQueryClient();
 
   const handleAuthSuccess = (user: any) => {
+    // For serverless demo, check if we already have user data in localStorage
+    // If so, preserve the existing user data instead of overwriting with API response
+    const existingUserData = localStorage.getItem('user');
+    let userToStore = user;
+    
+    if (existingUserData) {
+      try {
+        const parsedExistingUser = JSON.parse(existingUserData);
+        // If existing user has the same email and more complete data, use it
+        if (parsedExistingUser.email === user.email && 
+            (parsedExistingUser.firstName !== 'Demo' || parsedExistingUser.lastName !== 'User')) {
+          console.log('Preserving existing user data instead of overwriting with API response');
+          userToStore = parsedExistingUser;
+        }
+      } catch (error) {
+        console.error('Failed to parse existing user data:', error);
+      }
+    }
+    
     // Store user data in localStorage for serverless deployment
-    localStorage.setItem('user', JSON.stringify(user));
+    localStorage.setItem('user', JSON.stringify(userToStore));
     localStorage.setItem('isAuthenticated', 'true');
     
     // Call the success callback which will handle the navigation

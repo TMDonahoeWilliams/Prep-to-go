@@ -52,14 +52,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // For demo purposes, simulate user lookup
     // In a real production app, you would query your database here
     
-    // Demo user data (in real app, this would come from database)
-    const demoUser = {
-      id: 'demo-user-123',
+    // For demo purposes, return user data based on the email
+    // In a real app, you'd query the database for the user
+    const emailParts = validatedData.email.split('@')[0].split('.');
+    const firstName = emailParts[0] ? emailParts[0].charAt(0).toUpperCase() + emailParts[0].slice(1) : 'User';
+    const lastName = emailParts[1] ? emailParts[1].charAt(0).toUpperCase() + emailParts[1].slice(1) : 'Demo';
+    
+    const loginUser = {
+      id: `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       email: validatedData.email,
-      firstName: 'Demo',
-      lastName: 'User',
+      firstName: firstName,
+      lastName: lastName,
       profileImageUrl: null,
-      role: null,
+      role: null, // Will be set during role selection or retrieved from localStorage
       emailVerified: true,
       passwordHash: '$2b$12$example.hash.here', // This would be the real hash from DB
       createdAt: new Date().toISOString(),
@@ -80,10 +85,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(401).json({ message: 'Invalid email or password' });
     }
     
-    console.log('User logged in successfully:', demoUser.email);
+    console.log('User logged in successfully:', loginUser.email);
     
     // Return user without password hash
-    const { passwordHash: _, ...userWithoutPassword } = demoUser;
+    const { passwordHash: _, ...userWithoutPassword } = loginUser;
     
     return res.status(200).json(userWithoutPassword);
     
