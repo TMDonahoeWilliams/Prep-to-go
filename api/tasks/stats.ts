@@ -18,13 +18,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    // Demo task stats - calculated from comprehensive default tasks
+    // Demo task stats - calculated from comprehensive default tasks with major scholarships
     const today = new Date();
     const stats = {
-      totalTasks: 16, // Total comprehensive default tasks
+      totalTasks: 28, // Total comprehensive default tasks including major national scholarships
       completedTasks: 0,
-      overdueTasks: 3, // National Merit, Early Decision, UC System deadlines have passed
-      upcomingTasks: 13, // Tasks due in the future
+      overdueTasks: 8, // QuestBridge, Horatio Alger, Coca-Cola, National Merit, Early Decision, etc.
+      upcomingTasks: 20, // Tasks due in the future including all FAFSA and scholarship deadlines
     };
 
     return res.status(200).json(stats);
