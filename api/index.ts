@@ -35,12 +35,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   }
   
+  // Handle payment status check - for development, return no paid access to show paywall
+  if ((url.includes('/payments/check-access') || url === '/payments/check-access') && method === 'GET') {
+    return res.json({
+      hasPaidAccess: false  // Always show paywall in development/demo mode
+    });
+  }
+  
   // Default response with debug info
   return res.status(200).json({ 
     message: 'API handler working',
     url,
     method,
-    availableEndpoints: ['/debug', '/health', '/login-fallback'],
+    availableEndpoints: ['/debug', '/health', '/login-fallback', '/payments/check-access'],
     timestamp: new Date().toISOString()
   });
 }
