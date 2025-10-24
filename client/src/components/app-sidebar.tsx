@@ -76,6 +76,12 @@ export function AppSidebar({ user }: AppSidebarProps) {
       localStorage.removeItem('paymentStatus');
       localStorage.removeItem('newRegistration');
       
+      // Show toast before redirect
+      toast({
+        title: "Logged out successfully",
+        description: "You have been logged out of your account.",
+      });
+      
       // Try to call the logout API (optional - main logic is localStorage clearing)
       try {
         const response = await fetch('/api/logout', { 
@@ -91,21 +97,17 @@ export function AppSidebar({ user }: AppSidebarProps) {
         // Continue with logout process even if API fails
       }
       
-      // Redirect to landing page
-      setLocation('/');
+      // Force a complete page reload to ensure clean state
+      window.location.href = '/';
       
-      toast({
-        title: "Logged out successfully",
-        description: "You have been logged out of your account.",
-      });
     } catch (error) {
       console.error('Logout error:', error);
-      // Even if everything fails, clear localStorage and redirect
+      // Even if everything fails, clear localStorage and force reload
       localStorage.removeItem('user');
       localStorage.removeItem('isAuthenticated');
       localStorage.removeItem('paymentStatus');
       localStorage.removeItem('newRegistration');
-      setLocation('/');
+      window.location.href = '/';
     }
   };
 
