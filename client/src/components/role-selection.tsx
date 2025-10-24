@@ -42,10 +42,26 @@ export function RoleSelection({ onRoleSelected, userEmail }: RoleSelectionProps)
         throw new Error("Failed to update role");
       }
 
-      const updatedUser = await response.json();
+      const apiResponse = await response.json();
       
-      // Update localStorage with the updated user data for serverless deployment
-      localStorage.setItem('user', JSON.stringify(updatedUser));
+      // Update EXISTING localStorage user data with the role, don't replace entire user
+      const existingUserData = localStorage.getItem('user');
+      if (existingUserData) {
+        try {
+          const existingUser = JSON.parse(existingUserData);
+          const updatedUser = {
+            ...existingUser, // Keep all existing user data
+            role: selectedRole, // Only update the role
+            updatedAt: new Date().toISOString()
+          };
+          localStorage.setItem('user', JSON.stringify(updatedUser));
+          console.log('Role updated in existing user data:', updatedUser);
+        } catch (error) {
+          console.error('Failed to update existing user data:', error);
+        }
+      } else {
+        console.error('No existing user data found for role update');
+      }
 
       toast({
         title: "Welcome!",

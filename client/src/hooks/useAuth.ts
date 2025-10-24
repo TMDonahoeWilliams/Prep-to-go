@@ -9,7 +9,7 @@ export function useAuth() {
   // One-time cleanup of demo data on app startup
   useEffect(() => {
     const cleanupDemoData = () => {
-      const currentVersion = '3.0.0'; // Version to force clear old data - NUCLEAR OPTION
+      const currentVersion = '4.0.0'; // FINAL FIX - Role API was overwriting user data
       const storedVersion = localStorage.getItem('appVersion');
       
       // Force clear if version doesn't match (new deployment)

@@ -33,22 +33,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    // For serverless deployment demo, return updated demo user
-    const updatedUser = {
-      id: "demo-user-vercel",
-      email: "demo@collegeprep.app",
-      firstName: "Demo",
-      lastName: "User",
-      profileImageUrl: null,
-      role: validationResult.data,
-      emailVerified: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-
-    console.log('Returning updated demo user with role:', validationResult.data);
+    // For serverless deployment, this API should NOT override user data
+    // The role selection component should handle updating localStorage directly
+    // Return minimal response to confirm role was set
     
-    return res.status(200).json(updatedUser);
+    console.log('Role selection API called - client should handle localStorage update');
+    
+    return res.status(200).json({
+      success: true,
+      role: validationResult.data,
+      message: `Role set to ${validationResult.data}. Client should update localStorage.`
+    });
     
   } catch (error: any) {
     console.error('Role update error:', error);
