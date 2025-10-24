@@ -73,13 +73,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       lastName = 'User';
     }
     
+    // For demo purposes, derive a likely role based on email patterns
+    // In production, this would come from the database
+    let userRole = null;
+    
+    // Check for common parent email patterns
+    if (validatedData.email.toLowerCase().includes('parent') || 
+        validatedData.email.toLowerCase().includes('mom') ||
+        validatedData.email.toLowerCase().includes('dad') ||
+        validatedData.email.toLowerCase().includes('family')) {
+      userRole = 'parent';
+    }
+    // Check for common student email patterns  
+    else if (validatedData.email.toLowerCase().includes('student') ||
+             validatedData.email.toLowerCase().includes('edu') ||
+             emailParts[0].match(/\d{4}/) || // graduation year pattern
+             validatedData.email.toLowerCase().includes('college')) {
+      userRole = 'student';
+    }
+    // For testing purposes, assign role based on email domain or default to student
+    else if (validatedData.email.includes('@')) {
+      userRole = 'student'; // Default to student for demo
+    }
+
     const loginUser = {
       id: `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       email: validatedData.email,
       firstName: firstName,
       lastName: lastName,
       profileImageUrl: null,
-      role: null, // Will be set during role selection or retrieved from localStorage
+      role: userRole, // Now provides a role based on email pattern matching
       emailVerified: true,
       passwordHash: '$2b$12$example.hash.here', // This would be the real hash from DB
       createdAt: new Date().toISOString(),

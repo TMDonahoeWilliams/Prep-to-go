@@ -80,24 +80,13 @@ function Router() {
   }
 
   // If user is authenticated but has no role and it's NOT a new registration,
-  // redirect them to settings to select their role
+  // this is likely a returning user - show role selection instead of broken state
   if (isAuthenticated && user && !(user as any)?.role && !isNewRegistration) {
-    // This shouldn't happen with proper login, but if it does, direct them to settings
-    console.warn('User authenticated without role, redirecting to settings');
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-xl font-semibold mb-2">Account Setup Required</h2>
-          <p className="text-muted-foreground mb-4">Please complete your account setup in settings.</p>
-          <button 
-            onClick={() => setLocation('/settings')}
-            className="bg-primary text-primary-foreground px-4 py-2 rounded"
-          >
-            Go to Settings
-          </button>
-        </div>
-      </div>
-    );
+    console.warn('Returning user without role data, showing role selection');
+    return <RoleSelection onRoleSelected={() => {
+      // Refresh auth state after role selection
+      refreshAuth();
+    }} />;
   }
 
   // Show paywall if authenticated but hasn't paid
