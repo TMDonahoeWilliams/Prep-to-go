@@ -1,20 +1,30 @@
 {
   "version": 2,
-  "buildCommand": "npm run build",
-  "outputDirectory": "dist/public",
-  "functions": {
-    "dist/index.js": {
-      "maxDuration": 30
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist/public"
+      }
+    },
+    {
+      "src": "server/**/*.ts",
+      "use": "@vercel/node"
     }
-  },
+  ],
   "routes": [
     {
+      "src": "/health",
+      "dest": "server/index.ts"
+    },
+    {
       "src": "/api/(.*)",
-      "dest": "/dist/index.js"
+      "dest": "server/index.ts"
     },
     {
       "src": "/(.*)",
-      "dest": "/dist/public/$1"
+      "dest": "dist/public/$1"
     }
   ]
 }
