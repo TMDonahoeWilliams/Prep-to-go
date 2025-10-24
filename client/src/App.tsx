@@ -34,11 +34,12 @@ function Router() {
     );
   }
 
-  // Show authentication page if not authenticated
+  // Show landing page and auth routes if not authenticated
   if (!isAuthenticated) {
     return (
       <Switch>
-        <Route path="/" component={() => <AuthPage onAuthSuccess={() => {
+        <Route path="/" component={Landing} />
+        <Route path="/auth" component={() => <AuthPage onAuthSuccess={() => {
           // Refetch user data after successful authentication
           queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
         }} />} />

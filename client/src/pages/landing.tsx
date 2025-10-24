@@ -1,8 +1,11 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { CheckSquare, Calendar, FileText, Users, ArrowRight } from "lucide-react";
+import { useLocation } from "wouter";
 
 export default function Landing() {
+  const [, setLocation] = useLocation();
+
   return (
     <div className="min-h-screen bg-background">
       {/* Hero Section */}
@@ -20,10 +23,7 @@ export default function Landing() {
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button
                 size="lg"
-                onClick={() => {
-                  // Force a page reload to trigger authentication check
-                  window.location.href = '/api/login-fallback';
-                }}
+                onClick={() => setLocation('/auth')}
                 className="text-lg px-8"
                 data-testid="button-get-started"
               >
@@ -96,12 +96,10 @@ export default function Landing() {
           </p>
           <Button 
             size="lg" 
-            onClick={() => {
-              window.location.href = '/api/login-fallback';
-            }}
+            onClick={() => setLocation('/auth')}
             data-testid="button-login-footer"
           >
-            Log In to Get Started
+            Create Account or Sign In
           </Button>
         </Card>
       </div>

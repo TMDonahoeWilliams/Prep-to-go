@@ -15,6 +15,8 @@ export function AuthPage({ onAuthSuccess }: AuthPageProps) {
     // Invalidate and refetch user data
     queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
     onAuthSuccess();
+    // Redirect to home page to continue the flow
+    window.location.href = '/';
   };
 
   return (
