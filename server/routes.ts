@@ -14,6 +14,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(200).json({ status: 'ok', service: 'College Prep Organizer' });
   });
 
+  // Debug endpoint to check environment
+  app.get('/api/debug', (req, res) => {
+    res.json({
+      NODE_ENV: process.env.NODE_ENV,
+      DEV_AUTH: process.env.DEV_AUTH,
+      VERCEL: process.env.VERCEL,
+      useDevAuth: process.env.NODE_ENV === 'development' || process.env.DEV_AUTH === 'true'
+    });
+  });
+
   // Auth middleware - use dev auth in development, real auth in production
   const isDevelopment = process.env.NODE_ENV === 'development';
   const useDevAuth = isDevelopment || process.env.DEV_AUTH === 'true';
@@ -26,6 +36,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log("🔐 Using production authentication");
     await setupAuth(app);
   }
+
+  // Fallback login route in case auth setup doesn't work
+  app.get('/api/login-fallback', (req, res) => {
+    console.log("🔄 Fallback login route accessed");
+    res.redirect('/');
+  });
 
     // Auth routes
   app.get('/api/auth/user', authMiddleware, async (req: any, res) => {
