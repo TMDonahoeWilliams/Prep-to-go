@@ -12,6 +12,10 @@ export function AuthPage({ onAuthSuccess }: AuthPageProps) {
   const queryClient = useQueryClient();
 
   const handleAuthSuccess = (user: any) => {
+    // Store user data in localStorage for serverless deployment
+    localStorage.setItem('user', JSON.stringify(user));
+    localStorage.setItem('isAuthenticated', 'true');
+    
     // Invalidate and refetch user data
     queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
     onAuthSuccess();

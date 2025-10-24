@@ -42,6 +42,11 @@ export function RoleSelection({ onRoleSelected, userEmail }: RoleSelectionProps)
         throw new Error("Failed to update role");
       }
 
+      const updatedUser = await response.json();
+      
+      // Update localStorage with the updated user data for serverless deployment
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+
       toast({
         title: "Welcome!",
         description: `Your account has been set up as a ${selectedRole}`,

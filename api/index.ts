@@ -54,13 +54,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   }
 
-  // For production deployment, auth endpoints need to be implemented here
-  // Return message indicating auth needs to be set up for serverless
-  if (url.includes('/auth/')) {
-    return res.status(501).json({ 
-      message: "Authentication endpoints need serverless implementation for Vercel deployment",
-      suggestion: "Use the main server for development, implement serverless auth for production"
-    });
+  // Handle authentication endpoints for Vercel deployment
+  if (url.includes('/auth/register') && method === 'POST') {
+    // Import and call the register handler
+    const { default: registerHandler } = await import('./auth/register');
+    return registerHandler(req, res);
+  }
+  
+  if (url.includes('/auth/login') && method === 'POST') {
+    // Import and call the login handler
+    const { default: loginHandler } = await import('./auth/login');
+    return loginHandler(req, res);
+  }
+  
+  if (url.includes('/auth/user/role') && method === 'PATCH') {
+    // Import and call the role update handler
+    const { default: roleHandler } = await import('./auth/user/role');
+    return roleHandler(req, res);
+  }
+  
+  if (url.includes('/auth/user') && method === 'GET') {
+    // Import and call the user handler
+    const { default: userHandler } = await import('./auth/user');
+    return userHandler(req, res);
   }
   
   // Default response with debug info
