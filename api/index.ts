@@ -78,6 +78,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { default: userHandler } = await import('./auth/user');
     return userHandler(req, res);
   }
+
+  // Handle logout endpoints
+  if (url.includes('/logout') && (method === 'GET' || method === 'POST')) {
+    // Clear any cookies and redirect to landing page
+    res.setHeader('Set-Cookie', [
+      'connect.sid=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly',
+      'session=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly'
+    ]);
+    
+    if (method === 'GET') {
+      // GET request - redirect to landing page
+      res.setHeader('Location', '/');
+      return res.status(302).end();
+    } else {
+      // POST request - return JSON response
+      return res.status(200).json({ message: 'Logged out successfully' });
+    }
+  }
   
   // Default response with debug info
   return res.status(200).json({ 
@@ -85,7 +103,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     url,
     method,
     environment: 'vercel',
-    availableEndpoints: ['/debug', '/health', '/login-fallback', '/payments/check-access'],
+    availableEndpoints: ['/debug', '/health', '/login-fallback', '/logout', '/payments/check-access'],
     timestamp: new Date().toISOString()
   });
 }

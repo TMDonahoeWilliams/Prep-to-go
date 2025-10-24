@@ -101,13 +101,26 @@ export default function Settings() {
 
   const handleLogout = async () => {
     try {
-      // Clear localStorage first
+      // Clear localStorage first (most important part)
       localStorage.removeItem('user');
       localStorage.removeItem('isAuthenticated');
       localStorage.removeItem('paymentStatus');
+      localStorage.removeItem('newRegistration');
       
-      // Call the logout API
-      await fetch('/api/logout', { method: 'GET' });
+      // Try to call the logout API (optional - main logic is localStorage clearing)
+      try {
+        const response = await fetch('/api/logout', { 
+          method: 'GET',
+          credentials: 'include' // Include cookies if any
+        });
+        
+        if (!response.ok) {
+          console.warn('Logout API returned non-OK status:', response.status);
+        }
+      } catch (apiError) {
+        console.warn('Logout API call failed (non-critical):', apiError);
+        // Continue with logout process even if API fails
+      }
       
       // Redirect to landing page
       setLocation('/');
@@ -118,11 +131,17 @@ export default function Settings() {
       });
     } catch (error) {
       console.error('Logout error:', error);
-      // Even if API call fails, clear localStorage and redirect
+      // Even if everything fails, clear localStorage and redirect
       localStorage.removeItem('user');
       localStorage.removeItem('isAuthenticated');
       localStorage.removeItem('paymentStatus');
+      localStorage.removeItem('newRegistration');
       setLocation('/');
+      
+      toast({
+        title: "Logged out",
+        description: "You have been logged out.",
+      });
     }
   };
 
