@@ -19,26 +19,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     console.log('User data request received');
 
-    // For serverless deployment demo, the client should rely on localStorage
-    // This endpoint is mainly used as a fallback if no localStorage data exists
-    // In a real production app, you'd implement proper JWT/session handling
+    // This endpoint should NOT be used in the serverless demo
+    // All user data should come from localStorage only
+    // Return error to force client to use localStorage
     
-    // Return a generic demo user - client should use localStorage data instead
-    const fallbackUser = {
-      id: "demo-user-fallback",
-      email: "user@demo.app",
-      firstName: "Demo",
-      lastName: "User",
-      profileImageUrl: null,
-      role: null, // No role initially - will trigger role selection
-      emailVerified: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-
-    console.log('Returning fallback user data - client should use localStorage');
+    console.log('User API endpoint called - this should not happen in serverless demo');
     
-    return res.status(200).json(fallbackUser);
+    return res.status(404).json({ 
+      message: 'User data should be retrieved from localStorage in serverless demo mode',
+      redirect: 'Use localStorage data only'
+    });
     
   } catch (error: any) {
     console.error('User fetch error:', error);

@@ -9,7 +9,7 @@ export function useAuth() {
   // One-time cleanup of demo data on app startup
   useEffect(() => {
     const cleanupDemoData = () => {
-      const currentVersion = '2.0.0'; // Version to force clear old data
+      const currentVersion = '3.0.0'; // Version to force clear old data - NUCLEAR OPTION
       const storedVersion = localStorage.getItem('appVersion');
       
       // Force clear if version doesn't match (new deployment)
@@ -70,15 +70,16 @@ export function useAuth() {
     }
   }, [refreshKey]);
 
+  // SERVERLESS DEMO: Never call API, only use localStorage
   const { data: apiUser, isLoading } = useQuery({
     queryKey: ["/api/auth/user", refreshKey],
     retry: false,
-    enabled: !storedUser && !isAuthenticated, // Only fetch from API if no stored user and not authenticated
+    enabled: false, // DISABLED: Never fetch from API in serverless demo
   });
 
-  // Use stored user if available, otherwise use API user
-  const user = storedUser || apiUser;
-  const finalIsAuthenticated = isAuthenticated || !!apiUser;
+  // ONLY use stored user from localStorage - never use API user
+  const user = storedUser;
+  const finalIsAuthenticated = isAuthenticated;
 
   console.log('useAuth: Final state', { 
     storedUser: storedUser ? `${(storedUser as any).firstName} ${(storedUser as any).lastName}` : null,

@@ -12,68 +12,37 @@ export function AuthPage({ onAuthSuccess }: AuthPageProps) {
   const queryClient = useQueryClient();
 
   const handleAuthSuccess = (user: any) => {
-    console.log('handleAuthSuccess: Received user data from API:', user);
+    console.log('handleAuthSuccess: Received user data:', user);
     
-    // For serverless demo, check if we already have user data in localStorage
-    // If so, preserve the existing user data instead of overwriting with API response
-    let existingUserData = localStorage.getItem('user');
+    // For login: IGNORE API response if we have existing localStorage data
+    // For registration: Use the registration data that was passed
+    const existingUserData = localStorage.getItem('user');
     let userToStore = user;
     
-    console.log('handleAuthSuccess: Existing localStorage data:', existingUserData);
-    
-    // Clean up any old demo data that might be stored
-    if (existingUserData) {
+    if (existingUserData && !isLogin) {
+      // This is registration - use the new user data
+      console.log('handleAuthSuccess: Registration - using new user data');
+      userToStore = user;
+    } else if (existingUserData && isLogin) {
+      // This is login - preserve existing localStorage data
       try {
         const parsedExisting = JSON.parse(existingUserData);
-        // If existing data is clearly demo data with generic info, clear it
-        if ((parsedExisting.firstName === 'Demo' && parsedExisting.lastName === 'User') ||
-            parsedExisting.email === 'demo@collegeprep.app' ||
-            parsedExisting.id === 'demo-user-vercel' ||
-            parsedExisting.id === 'demo-user-fallback') {
-          console.log('handleAuthSuccess: Clearing old demo data from localStorage');
-          localStorage.removeItem('user');
-          existingUserData = null;
-        }
+        console.log('handleAuthSuccess: Login - preserving existing localStorage data:', parsedExisting);
+        userToStore = parsedExisting;
       } catch (error) {
-        console.error('Error checking existing data:', error);
+        console.error('Failed to parse existing data:', error);
+        userToStore = user;
       }
     }
     
-    if (existingUserData) {
-      try {
-        const parsedExistingUser = JSON.parse(existingUserData);
-        console.log('handleAuthSuccess: Parsed existing user:', parsedExistingUser);
-        
-        // If existing user has the same email, prefer existing data unless it's clearly demo data
-        if (parsedExistingUser.email === user.email) {
-          // If existing user data has real names (not Demo User), use it
-          if (parsedExistingUser.firstName !== 'Demo' && parsedExistingUser.lastName !== 'User' &&
-              parsedExistingUser.firstName && parsedExistingUser.lastName) {
-            console.log('handleAuthSuccess: Preserving existing real user data');
-            userToStore = parsedExistingUser;
-          } 
-          // If API response has better data than "Demo User", use API data
-          else if (user.firstName !== 'Demo' && user.lastName !== 'User' &&
-                   user.firstName && user.lastName) {
-            console.log('handleAuthSuccess: Using API response (better than existing demo data)');
-            userToStore = user;
-          }
-          // Otherwise, try to merge the best parts
-          else {
-            console.log('handleAuthSuccess: Merging user data');
-            userToStore = {
-              ...parsedExistingUser,
-              ...user,
-              // Keep role and other data from existing if available
-              role: parsedExistingUser.role || user.role,
-            };
-          }
-        } else {
-          console.log('handleAuthSuccess: Different email, using API response data');
-        }
-      } catch (error) {
-        console.error('Failed to parse existing user data:', error);
-      }
+    // Never store "Demo User" data
+    if (userToStore.firstName === 'Demo' && userToStore.lastName === 'User') {
+      console.log('handleAuthSuccess: Preventing Demo User storage');
+      userToStore = {
+        ...userToStore,
+        firstName: 'Account',
+        lastName: 'User'
+      };
     }
     
     console.log('handleAuthSuccess: Final user data to store:', userToStore);
