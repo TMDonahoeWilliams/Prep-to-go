@@ -1,6 +1,6 @@
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
-import { QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -10,6 +10,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { useAuth } from "@/hooks/useAuth";
 import { usePaymentStatus } from "@/hooks/usePaymentStatus";
 import { Paywall } from "@/components/paywall";
+import { RoleSelection } from "@/components/role-selection";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
 import Dashboard from "@/pages/dashboard";
@@ -21,6 +22,7 @@ import Settings from "@/pages/settings";
 function Router() {
   const { user, isAuthenticated, isLoading } = useAuth();
   const { data: paymentStatus, isLoading: isPaymentLoading } = usePaymentStatus();
+  const queryClient = useQueryClient();
 
   // Show loading while checking auth or payment status
   if (isLoading || (isAuthenticated && isPaymentLoading)) {
@@ -39,6 +41,14 @@ function Router() {
         <Route component={NotFound} />
       </Switch>
     );
+  }
+
+  // Show role selection if authenticated but no role selected
+  if (isAuthenticated && user && !(user as any)?.role) {
+    return <RoleSelection onRoleSelected={() => {
+      // Refetch user data to get updated role
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+    }} />;
   }
 
   // Show paywall if authenticated but hasn't paid
