@@ -3,8 +3,20 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { url = '', method } = req;
   
+  // Only handle API requests when running on Vercel, not in local development
+  const isVercel = process.env.VERCEL === '1' || process.env.VERCEL_ENV;
+  const isProduction = process.env.NODE_ENV === 'production';
+  
   // Log for debugging
-  console.log('API Request:', { url, method, fullUrl: req.url });
+  console.log('API Request:', { url, method, fullUrl: req.url, isVercel, isProduction });
+  
+  // In local development, let the main server handle everything
+  if (!isVercel && !isProduction) {
+    return res.status(404).json({ 
+      message: "Local development - routes handled by main server",
+      redirectToMainServer: true 
+    });
+  }
   
   // Handle debug endpoint - check multiple possible URL formats
   if ((url.includes('/debug') || url === '/debug') && method === 'GET') {
@@ -35,24 +47,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   }
   
-  // Handle payment status check - for development, return no paid access to show paywall
+  // Handle payment status check - for Vercel deployment, return no paid access to show paywall
   if ((url.includes('/payments/check-access') || url === '/payments/check-access') && method === 'GET') {
     return res.json({
-      hasPaidAccess: false  // Always show paywall in development/demo mode
+      hasPaidAccess: false  // Always show paywall in demo mode on Vercel
     });
   }
 
-  // For production, these endpoints are handled by the main server
-  // Return 404 for auth endpoints that should be handled by server/routes.ts
+  // For production deployment, auth endpoints need to be implemented here
+  // Return message indicating auth needs to be set up for serverless
   if (url.includes('/auth/')) {
-    return res.status(404).json({ message: "Authentication endpoints are handled by the main server" });
+    return res.status(501).json({ 
+      message: "Authentication endpoints need serverless implementation for Vercel deployment",
+      suggestion: "Use the main server for development, implement serverless auth for production"
+    });
   }
   
   // Default response with debug info
   return res.status(200).json({ 
-    message: 'API handler working',
+    message: 'Vercel API handler working',
     url,
     method,
+    environment: 'vercel',
     availableEndpoints: ['/debug', '/health', '/login-fallback', '/payments/check-access'],
     timestamp: new Date().toISOString()
   });

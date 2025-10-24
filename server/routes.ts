@@ -45,8 +45,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // User registration
   app.post('/api/auth/register', async (req, res) => {
+    console.log('🔵 Registration endpoint hit:', req.body);
     try {
       const user = await registerUser(req.body);
+      console.log('✅ User registered successfully:', user.email);
       // Create session
       (req as any).session.userId = user.id;
       // Return user without password hash
@@ -62,7 +64,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         updatedAt: user.updatedAt,
       });
     } catch (error: any) {
-      console.error('Registration error:', error);
+      console.error('❌ Registration error:', error);
       res.status(400).json({ 
         message: error.message || 'Registration failed',
         errors: error.errors || []
