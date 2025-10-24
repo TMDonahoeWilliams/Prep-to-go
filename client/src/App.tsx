@@ -21,7 +21,7 @@ import Documents from "@/pages/documents";
 import Settings from "@/pages/settings";
 
 function Router() {
-  const { user, isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading, refreshAuth } = useAuth();
   const { data: paymentStatus, isLoading: isPaymentLoading } = usePaymentStatus();
   const queryClient = useQueryClient();
 
@@ -40,8 +40,8 @@ function Router() {
       <Switch>
         <Route path="/" component={Landing} />
         <Route path="/auth" component={() => <AuthPage onAuthSuccess={() => {
-          // Refetch user data after successful authentication
-          queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+          // Refresh auth state to re-read from localStorage
+          refreshAuth();
         }} />} />
         <Route component={NotFound} />
       </Switch>
@@ -51,8 +51,8 @@ function Router() {
   // Show role selection if authenticated but no role selected
   if (isAuthenticated && user && !(user as any)?.role) {
     return <RoleSelection onRoleSelected={() => {
-      // Refetch user data to get updated role
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      // Refresh auth state to get updated role from localStorage
+      refreshAuth();
     }} />;
   }
 

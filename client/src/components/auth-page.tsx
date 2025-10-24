@@ -16,11 +16,8 @@ export function AuthPage({ onAuthSuccess }: AuthPageProps) {
     localStorage.setItem('user', JSON.stringify(user));
     localStorage.setItem('isAuthenticated', 'true');
     
-    // Invalidate and refetch user data
-    queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+    // Call the success callback which will handle the navigation
     onAuthSuccess();
-    // Redirect to home page to continue the flow
-    window.location.href = '/';
   };
 
   return (
