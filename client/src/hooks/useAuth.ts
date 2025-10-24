@@ -11,10 +11,14 @@ export function useAuth() {
     const authStatus = localStorage.getItem('isAuthenticated');
     const userData = localStorage.getItem('user');
     
+    console.log('useAuth: Checking localStorage', { authStatus, userData: userData?.substring(0, 100) });
+    
     if (authStatus === 'true' && userData) {
       setIsAuthenticated(true);
       try {
-        setStoredUser(JSON.parse(userData));
+        const parsedUser = JSON.parse(userData);
+        console.log('useAuth: Parsed user from localStorage:', parsedUser);
+        setStoredUser(parsedUser);
       } catch (error) {
         console.error('Failed to parse stored user data:', error);
         setStoredUser(null);
@@ -29,12 +33,20 @@ export function useAuth() {
   const { data: apiUser, isLoading } = useQuery({
     queryKey: ["/api/auth/user", refreshKey],
     retry: false,
-    enabled: !storedUser, // Only fetch from API if no stored user
+    enabled: !storedUser && !isAuthenticated, // Only fetch from API if no stored user and not authenticated
   });
 
   // Use stored user if available, otherwise use API user
   const user = storedUser || apiUser;
   const finalIsAuthenticated = isAuthenticated || !!apiUser;
+
+  console.log('useAuth: Final state', { 
+    storedUser: storedUser ? `${(storedUser as any).firstName} ${(storedUser as any).lastName}` : null,
+    apiUser: apiUser ? `${(apiUser as any).firstName} ${(apiUser as any).lastName}` : null,
+    finalUser: user ? `${(user as any).firstName} ${(user as any).lastName}` : null,
+    isAuthenticated: finalIsAuthenticated,
+    isLoading
+  });
 
   return {
     user,
