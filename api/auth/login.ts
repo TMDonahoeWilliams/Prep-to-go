@@ -52,11 +52,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // For demo purposes, simulate user lookup
     // In a real production app, you would query your database here
     
-    // For demo purposes, return user data based on the email
-    // In a real app, you'd query the database for the user
-    const emailParts = validatedData.email.split('@')[0].split('.');
-    const firstName = emailParts[0] ? emailParts[0].charAt(0).toUpperCase() + emailParts[0].slice(1) : 'User';
-    const lastName = emailParts[1] ? emailParts[1].charAt(0).toUpperCase() + emailParts[1].slice(1) : 'Demo';
+    // For serverless demo, extract real name from email or use generic but not "Demo User"
+    const emailParts = validatedData.email.toLowerCase().split('@')[0].split(/[._-]/);
+    
+    // Try to create meaningful names from email parts
+    let firstName = 'User';
+    let lastName = 'Account';
+    
+    if (emailParts.length >= 2) {
+      firstName = emailParts[0].charAt(0).toUpperCase() + emailParts[0].slice(1);
+      lastName = emailParts[1].charAt(0).toUpperCase() + emailParts[1].slice(1);
+    } else if (emailParts.length === 1) {
+      firstName = emailParts[0].charAt(0).toUpperCase() + emailParts[0].slice(1);
+      lastName = 'User';
+    }
+    
+    // Ensure we never return "Demo User"
+    if (firstName === 'Demo' && lastName === 'User') {
+      firstName = 'Account';
+      lastName = 'User';
+    }
     
     const loginUser = {
       id: `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,

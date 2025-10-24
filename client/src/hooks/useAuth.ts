@@ -6,6 +6,46 @@ export function useAuth() {
   const [storedUser, setStoredUser] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
+  // One-time cleanup of demo data on app startup
+  useEffect(() => {
+    const cleanupDemoData = () => {
+      const currentVersion = '2.0.0'; // Version to force clear old data
+      const storedVersion = localStorage.getItem('appVersion');
+      
+      // Force clear if version doesn't match (new deployment)
+      if (storedVersion !== currentVersion) {
+        console.log('useAuth: New app version detected, clearing all demo data');
+        localStorage.removeItem('user');
+        localStorage.removeItem('isAuthenticated');
+        localStorage.removeItem('paymentStatus');
+        localStorage.setItem('appVersion', currentVersion);
+        return;
+      }
+      
+      const userData = localStorage.getItem('user');
+      if (userData) {
+        try {
+          const parsedUser = JSON.parse(userData);
+          // Check for any demo data patterns and clear them
+          if (parsedUser.firstName === 'Demo' || 
+              parsedUser.lastName === 'User' ||
+              parsedUser.email === 'demo@collegeprep.app' ||
+              parsedUser.id?.includes('demo-user')) {
+            console.log('useAuth: Clearing demo data on startup');
+            localStorage.removeItem('user');
+            localStorage.removeItem('isAuthenticated');
+          }
+        } catch (error) {
+          // Invalid JSON, clear it
+          localStorage.removeItem('user');
+          localStorage.removeItem('isAuthenticated');
+        }
+      }
+    };
+    
+    cleanupDemoData();
+  }, []); // Run only once on mount
+
   // Check localStorage on mount and when refreshKey changes
   useEffect(() => {
     const authStatus = localStorage.getItem('isAuthenticated');
