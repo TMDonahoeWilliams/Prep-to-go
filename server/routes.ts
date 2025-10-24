@@ -38,8 +38,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   // Fallback login route in case auth setup doesn't work
-  app.get('/api/login-fallback', (req, res) => {
+  app.get('/api/login-fallback', async (req: any, res) => {
     console.log("🔄 Fallback login route accessed");
+    
+    // If using dev auth, simulate user session
+    if (useDevAuth) {
+      try {
+        // Create the dev user if it doesn't exist
+        const { storage } = await import('./storage');
+        await storage.upsertUser({
+          id: "dev-user-123",
+          email: "dev@example.com", 
+          firstName: "Development",
+          lastName: "User",
+          profileImageUrl: null,
+        });
+        console.log("✅ Dev user created/verified");
+      } catch (error) {
+        console.error("❌ Error with dev user:", error);
+      }
+    }
+    
     res.redirect('/');
   });
 

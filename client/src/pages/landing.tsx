@@ -21,18 +21,8 @@ export default function Landing() {
               <Button
                 size="lg"
                 onClick={() => {
-                  // Try multiple login approaches
-                  fetch('/api/debug')
-                    .then(r => r.json())
-                    .then(data => {
-                      console.log('Debug info:', data);
-                      // Always redirect to dashboard for now
-                      window.location.href = '/';
-                    })
-                    .catch(() => {
-                      // If debug fails, just go to dashboard
-                      window.location.href = '/';
-                    });
+                  // Force a page reload to trigger authentication check
+                  window.location.href = '/api/login-fallback';
                 }}
                 className="text-lg px-8"
                 data-testid="button-get-started"
@@ -106,7 +96,9 @@ export default function Landing() {
           </p>
           <Button 
             size="lg" 
-            onClick={() => window.location.href = '/'}
+            onClick={() => {
+              window.location.href = '/api/login-fallback';
+            }}
             data-testid="button-login-footer"
           >
             Log In to Get Started
