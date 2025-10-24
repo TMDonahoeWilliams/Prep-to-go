@@ -1,18 +1,35 @@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ChevronLeft, ChevronRight, AlertCircle } from "lucide-react";
+import { ChevronLeft, ChevronRight, AlertCircle, Plus, CalendarPlus } from "lucide-react";
 import { useState, useEffect } from "react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, startOfWeek, endOfWeek, addMonths, subMonths } from "date-fns";
 import { Button } from "@/components/ui/button";
-import { useTasks } from "@/hooks/useTasks";
+import { useTasks, useCreateTask } from "@/hooks/useTasks";
+import { useCategories } from "@/hooks/useCategories";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function Calendar() {
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [newTask, setNewTask] = useState({
+    title: '',
+    description: '',
+    categoryId: '',
+    priority: 'medium',
+    assignedTo: 'student',
+  });
   const { toast } = useToast();
 
   const { data: tasks = [], isLoading, error, refetch } = useTasks();
+  const { data: categories = [] } = useCategories();
+  const createTaskMutation = useCreateTask();
 
   useEffect(() => {
     if (error) {
@@ -23,6 +40,51 @@ export default function Calendar() {
       });
     }
   }, [error, toast]);
+
+  const handleCreateTask = async () => {
+    if (!newTask.title.trim() || !newTask.categoryId || !selectedDate) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      await createTaskMutation.mutateAsync({
+        ...newTask,
+        dueDate: selectedDate.toISOString().split('T')[0], // Pass as date string
+      });
+
+      toast({
+        title: "Success",
+        description: "Task created successfully",
+      });
+
+      // Reset form
+      setNewTask({
+        title: '',
+        description: '',
+        categoryId: '',
+        priority: 'medium',
+        assignedTo: 'student',
+      });
+      setSelectedDate(null);
+      setIsCreateDialogOpen(false);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to create task",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDayClick = (day: Date) => {
+    setSelectedDate(day);
+    setIsCreateDialogOpen(true);
+  };
 
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
@@ -93,6 +155,14 @@ export default function Calendar() {
             {format(currentDate, 'MMMM yyyy')}
           </h2>
           <div className="flex gap-2">
+            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="default" className="gap-2">
+                  <CalendarPlus className="h-4 w-4" />
+                  Add Task
+                </Button>
+              </DialogTrigger>
+            </Dialog>
             <Button
               variant="outline"
               size="icon"
@@ -134,10 +204,11 @@ export default function Calendar() {
             return (
               <div
                 key={i}
-                className={`min-h-24 p-2 border rounded-md ${
+                className={`min-h-24 p-2 border rounded-md cursor-pointer transition-colors hover:bg-muted/50 ${
                   isToday ? 'border-primary bg-primary/5' : 'border-border'
                 } ${!isCurrentMonth ? 'opacity-40' : ''}`}
                 data-testid={`calendar-day-${format(day, 'yyyy-MM-dd')}`}
+                onClick={() => isCurrentMonth && handleDayClick(day)}
               >
                 <div className={`text-sm font-medium mb-1 ${isToday ? 'text-primary' : ''}`}>
                   {format(day, 'd')}
@@ -212,6 +283,112 @@ export default function Calendar() {
           </div>
         )}
       </Card>
+
+      {/* Task Creation Dialog */}
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Create New Task</DialogTitle>
+            {selectedDate && (
+              <p className="text-sm text-muted-foreground">
+                Due date: {format(selectedDate, 'MMMM d, yyyy')}
+              </p>
+            )}
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            <div className="space-y-2">
+              <Label htmlFor="title">Task Title *</Label>
+              <Input
+                id="title"
+                value={newTask.title}
+                onChange={(e) => setNewTask(prev => ({ ...prev, title: e.target.value }))}
+                placeholder="Enter task title"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                value={newTask.description}
+                onChange={(e) => setNewTask(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Enter task description"
+                rows={3}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="category">Category *</Label>
+              <Select 
+                value={newTask.categoryId} 
+                onValueChange={(value) => setNewTask(prev => ({ ...prev, categoryId: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map((category) => (
+                    <SelectItem key={category.id} value={category.id}>
+                      {category.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="priority">Priority</Label>
+                <Select 
+                  value={newTask.priority} 
+                  onValueChange={(value) => setNewTask(prev => ({ ...prev, priority: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="urgent">Urgent</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="assignedTo">Assigned To</Label>
+                <Select 
+                  value={newTask.assignedTo} 
+                  onValueChange={(value) => setNewTask(prev => ({ ...prev, assignedTo: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="student">Student</SelectItem>
+                    <SelectItem value="parent">Parent</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-4">
+              <Button 
+                variant="outline" 
+                onClick={() => setIsCreateDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleCreateTask}
+                disabled={createTaskMutation.isPending}
+              >
+                {createTaskMutation.isPending ? 'Creating...' : 'Create Task'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
