@@ -16,10 +16,14 @@ export default function Landing() {
               Your Complete College
               <span className="block text-primary">Prep Companion</span>
             </h1>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-8 leading-relaxed">
+            <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-6 leading-relaxed">
               Stay organized and on track from senior year through college move-in. 
               Built for students and parents to collaborate seamlessly.
             </p>
+            <div className="text-center mb-8">
+              <div className="text-3xl font-bold text-primary mb-2">$4.99</div>
+              <p className="text-muted-foreground">One-time payment • Lifetime access</p>
+            </div>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button
                 size="lg"
@@ -27,7 +31,7 @@ export default function Landing() {
                 className="text-lg px-8"
                 data-testid="button-get-started"
               >
-                Get Started
+                Get Started - $4.99
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
             </div>
@@ -87,19 +91,78 @@ export default function Landing() {
         </div>
       </div>
 
+      {/* Pricing Section */}
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        <div className="text-center mb-12">
+          <h2 className="text-3xl font-bold mb-4">Simple, Transparent Pricing</h2>
+          <p className="text-lg text-muted-foreground">
+            No subscriptions, no hidden fees. Pay once, use forever.
+          </p>
+        </div>
+
+        <Card className="p-8 border-2 border-primary/20 max-w-md mx-auto">
+          <div className="text-center">
+            <h3 className="text-2xl font-bold mb-4">Complete Access</h3>
+            <div className="text-5xl font-bold text-primary mb-2">$4.99</div>
+            <p className="text-muted-foreground mb-6">One-time payment</p>
+            
+            <div className="space-y-3 text-left mb-8">
+              <div className="flex items-center gap-2">
+                <CheckSquare className="h-4 w-4 text-green-500 flex-shrink-0" />
+                <span className="text-sm">Complete task management system</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckSquare className="h-4 w-4 text-green-500 flex-shrink-0" />
+                <span className="text-sm">Calendar with deadline tracking</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckSquare className="h-4 w-4 text-green-500 flex-shrink-0" />
+                <span className="text-sm">Document organization tools</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckSquare className="h-4 w-4 text-green-500 flex-shrink-0" />
+                <span className="text-sm">Parent/student collaboration</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckSquare className="h-4 w-4 text-green-500 flex-shrink-0" />
+                <span className="text-sm">Progress monitoring dashboard</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckSquare className="h-4 w-4 text-green-500 flex-shrink-0" />
+                <span className="text-sm">Lifetime access & updates</span>
+              </div>
+            </div>
+
+            <Button 
+              size="lg" 
+              className="w-full text-lg"
+              onClick={() => setLocation('/register')}
+            >
+              Get Instant Access
+            </Button>
+            
+            <p className="text-xs text-muted-foreground mt-4">
+              Secure payment • Instant access • 30-day satisfaction guarantee
+            </p>
+          </div>
+        </Card>
+      </div>
+
       {/* CTA Section */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <Card className="p-8 sm:p-12 text-center bg-primary/5">
           <h2 className="text-3xl font-bold mb-4">Ready to Get Organized?</h2>
-          <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
+          <p className="text-lg text-muted-foreground mb-6 max-w-2xl mx-auto">
             Join students and families who are staying on top of their college preparation journey.
           </p>
+          <div className="text-2xl font-bold text-primary mb-6">Just $4.99 • One-time payment</div>
           <Button 
             size="lg" 
             onClick={() => setLocation('/auth')}
             data-testid="button-login-footer"
+            className="text-lg px-8"
           >
-            Create Account or Sign In
+            Start Your Journey Today
           </Button>
         </Card>
       </div>
