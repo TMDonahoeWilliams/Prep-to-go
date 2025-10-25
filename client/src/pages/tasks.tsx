@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TaskSeedingPrompt } from "@/components/task-seeding-prompt";
 
 export default function Tasks() {
   const { toast } = useToast();
@@ -126,6 +127,9 @@ export default function Tasks() {
 
   return (
     <div className="space-y-6">
+      {/* Task Seeding Prompt for Existing Users */}
+      <TaskSeedingPrompt />
+      
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

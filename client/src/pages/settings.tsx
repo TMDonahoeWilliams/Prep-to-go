@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { SeedTasksButton } from "@/components/seed-tasks-button";
 import {
   Select,
   SelectContent,
@@ -322,6 +323,21 @@ export default function Settings() {
           </div>
         </Card>
       )}
+
+      {/* Task Management Section */}
+      <Card className="p-6">
+        <h2 className="text-lg font-semibold mb-4">Task Management</h2>
+        <div className="space-y-4">
+          <div>
+            <Label className="text-base">Default College Prep Tasks</Label>
+            <p className="text-sm text-muted-foreground mb-3">
+              Add essential college preparation tasks including FAFSA deadlines, scholarship applications, 
+              and college application deadlines to help you stay organized.
+            </p>
+            <SeedTasksButton />
+          </div>
+        </div>
+      </Card>
 
       <Card className="p-6">
         <h2 className="text-lg font-semibold mb-4">Appearance</h2>

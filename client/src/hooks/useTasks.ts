@@ -34,7 +34,14 @@ export function useTasks() {
         throw new Error('Failed to fetch tasks');
       }
       
-      return response.json();
+      const tasks = await response.json();
+      
+      // Mark that this is an existing user without seeded tasks
+      if (tasks && tasks.length > 0 && !tasksSeeded) {
+        localStorage.setItem('needsTaskSeeding', 'true');
+      }
+      
+      return tasks;
     },
   });
 }
@@ -88,6 +95,37 @@ export function useDeleteTask() {
       });
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks/stats"] });
+    },
+  });
+}
+
+export function useSeedTasks() {
+  return useMutation({
+    mutationFn: async (userId: string) => {
+      const response = await fetch('/api/tasks/seed', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ userId }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to seed tasks');
+      }
+
+      return response.json();
+    },
+    onSuccess: (data) => {
+      // Store seeded tasks in localStorage
+      localStorage.setItem('userTasks', JSON.stringify(data.tasks || []));
+      localStorage.setItem('tasksSeeded', 'true');
+      localStorage.removeItem('needsTaskSeeding');
+      
+      // Invalidate queries to refresh the UI
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
       queryClient.invalidateQueries({ queryKey: ["/api/tasks/stats"] });
     },
