@@ -14,6 +14,8 @@ export function useTasks() {
       const userTasks = localStorage.getItem('userTasks');
       const tasksSeeded = localStorage.getItem('tasksSeeded');
       
+
+      
       if (userTasks && tasksSeeded === 'true') {
         try {
           const tasks = JSON.parse(userTasks);
@@ -35,9 +37,10 @@ export function useTasks() {
       }
       
       const tasks = await response.json();
+
       
       // Mark that this user needs task seeding if they have no tasks and haven't been seeded
-      if ((!tasks || tasks.length === 0) && !tasksSeeded) {
+      if ((!tasks || tasks.length === 0) && tasksSeeded !== 'true') {
         console.log('No tasks found and not seeded - marking for task seeding');
         localStorage.setItem('needsTaskSeeding', 'true');
       }

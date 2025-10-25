@@ -128,7 +128,7 @@ export default function Tasks() {
   return (
     <div className="space-y-6">
       {/* Task Seeding Prompt for Existing Users */}
-      <TaskSeedingPrompt />
+      <TaskSeedingPrompt tasks={tasks} />
       
       {/* Header */}
       <div className="flex items-center justify-between">

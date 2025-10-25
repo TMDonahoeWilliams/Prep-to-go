@@ -9,10 +9,11 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 
 interface TaskSeedingPromptProps {
+  tasks?: any[];
   onDismiss?: () => void;
 }
 
-export function TaskSeedingPrompt({ onDismiss }: TaskSeedingPromptProps) {
+export function TaskSeedingPrompt({ tasks = [], onDismiss }: TaskSeedingPromptProps) {
   const [isDismissed, setIsDismissed] = useState(false);
   const [showPrompt, setShowPrompt] = useState(false);
   const { user } = useAuth();
@@ -20,14 +21,25 @@ export function TaskSeedingPrompt({ onDismiss }: TaskSeedingPromptProps) {
   const seedTasks = useSeedTasks();
 
   useEffect(() => {
-    // Check if user needs task seeding and hasn't dismissed it
-    const needsSeeding = localStorage.getItem('needsTaskSeeding') === 'true';
+    // Simple logic: Show prompt if user has no tasks and hasn't dismissed it
     const dismissed = localStorage.getItem('taskSeedingDismissed') === 'true';
+    const userId = (user as any)?.id;
     
-    if (needsSeeding && !dismissed && (user as any)?.id) {
-      setShowPrompt(true);
-    }
-  }, [user]);
+    // Show prompt if:
+    // 1. User is logged in
+    // 2. User has no tasks
+    // 3. Haven't dismissed the prompt
+    const shouldShow = userId && !dismissed && (!tasks || tasks.length === 0);
+    
+    console.log('DEBUG - TaskSeedingPrompt check:', { 
+      userId,
+      tasksCount: tasks?.length || 0,
+      dismissed,
+      shouldShow
+    });
+    
+    setShowPrompt(shouldShow);
+  }, [user, tasks]);
 
   const handleSeedTasks = async () => {
     const userId = (user as any)?.id;
