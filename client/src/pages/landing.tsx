@@ -35,6 +35,19 @@ export default function Landing() {
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
             </div>
+            
+            <div className="text-center mt-4">
+              <p className="text-muted-foreground">
+                Already have an account?{" "}
+                <button
+                  onClick={() => setLocation('/auth')}
+                  className="text-primary hover:underline font-medium"
+                  data-testid="link-login"
+                >
+                  Login Here
+                </button>
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -158,12 +171,25 @@ export default function Landing() {
           <div className="text-2xl font-bold text-primary mb-6">Just $4.99 • One-time payment</div>
           <Button 
             size="lg" 
-            onClick={() => setLocation('/auth')}
-            data-testid="button-login-footer"
+            onClick={() => setLocation('/register')}
+            data-testid="button-register-footer"
             className="text-lg px-8"
           >
             Start Your Journey Today
           </Button>
+          
+          <div className="mt-4">
+            <p className="text-muted-foreground">
+              Already have an account?{" "}
+              <button
+                onClick={() => setLocation('/auth')}
+                className="text-primary hover:underline font-medium"
+                data-testid="button-login-footer"
+              >
+                Login Here
+              </button>
+            </p>
+          </div>
         </Card>
       </div>
 
