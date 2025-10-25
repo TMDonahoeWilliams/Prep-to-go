@@ -20,11 +20,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     console.log('Payment access check requested');
 
-    // For demo purposes, check if user has completed payment in this session
-    // In a real app, you'd check the database for payment records
-    // We'll simulate payment status - in demo, all users start unpaid
+    // For demo purposes, API always returns "no access" - payment status is managed via localStorage
+    // The usePaymentStatus hook checks localStorage first, then falls back to this API
+    // This ensures the payment flow works correctly in demo mode
     const paymentStatus = {
-      hasPaidAccess: false, // Always false for demo - user must go through payment flow
+      hasPaidAccess: false, // Always false from API - localStorage overrides after payment
       subscriptionStatus: 'inactive',
       planType: null,
       expiresAt: null,

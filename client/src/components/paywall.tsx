@@ -114,7 +114,7 @@ export function Paywall({ userEmail, onPaymentComplete, isPartOfRegistration = f
               <CardTitle className="text-2xl">Complete Access</CardTitle>
               <CardDescription>Everything you need for college preparation</CardDescription>
               <div className="text-4xl font-bold text-primary mt-4">
-                $49.99
+                $4.99
                 <span className="text-sm font-normal text-muted-foreground ml-2">one-time</span>
               </div>
             </CardHeader>
