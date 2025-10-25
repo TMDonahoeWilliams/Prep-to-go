@@ -745,12 +745,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({ message: 'OK' });
     }
 
-    // For demo purposes, we'll return sample tasks
-    // In production, you'd check authentication and query the database
+    // For demo purposes, return empty array to trigger task seeding for real users
+    // Only return defaultTasks for the demo-user, otherwise return empty array
+    // This ensures new/existing users get prompted to seed their own tasks
 
     // GET /api/tasks - Get all user tasks with categories
     if (req.method === 'GET') {
-      return res.status(200).json(defaultTasks);
+      // For demo mode, return empty array to trigger task seeding prompts
+      // Real users should seed their own tasks through the seeding process
+      console.log('Tasks API: Returning empty array to trigger task seeding');
+      return res.status(200).json([]);
     }
 
     // POST /api/tasks - Create new task

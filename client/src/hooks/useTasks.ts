@@ -36,8 +36,9 @@ export function useTasks() {
       
       const tasks = await response.json();
       
-      // Mark that this is an existing user without seeded tasks
-      if (tasks && tasks.length > 0 && !tasksSeeded) {
+      // Mark that this user needs task seeding if they have no tasks and haven't been seeded
+      if ((!tasks || tasks.length === 0) && !tasksSeeded) {
+        console.log('No tasks found and not seeded - marking for task seeding');
         localStorage.setItem('needsTaskSeeding', 'true');
       }
       
