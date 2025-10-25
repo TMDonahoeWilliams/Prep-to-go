@@ -35,14 +35,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // For serverless deployment, this API should NOT override user data
     // The role selection component should handle updating localStorage directly
-    // Return minimal response to confirm role was set
+    // But we should trigger task seeding for new users
     
-    console.log('Role selection API called - client should handle localStorage update');
+    console.log('Role selection API called - client should handle localStorage update and task seeding');
     
     return res.status(200).json({
       success: true,
       role: validationResult.data,
-      message: `Role set to ${validationResult.data}. Client should update localStorage.`
+      message: `Role set to ${validationResult.data}. Client should update localStorage and seed tasks.`,
+      shouldSeedTasks: true // Flag to tell client to seed tasks
     });
     
   } catch (error: any) {

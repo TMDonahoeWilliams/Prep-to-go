@@ -46,9 +46,12 @@ export function RoleSelection({ onRoleSelected, userEmail }: RoleSelectionProps)
       
       // Update EXISTING localStorage user data with the role, don't replace entire user
       const existingUserData = localStorage.getItem('user');
+      let userId = null;
+      
       if (existingUserData) {
         try {
           const existingUser = JSON.parse(existingUserData);
+          userId = existingUser.id;
           const updatedUser = {
             ...existingUser, // Keep all existing user data
             role: selectedRole, // Only update the role
@@ -63,10 +66,52 @@ export function RoleSelection({ onRoleSelected, userEmail }: RoleSelectionProps)
         console.error('No existing user data found for role update');
       }
 
-      toast({
-        title: "Welcome!",
-        description: `Your account has been set up as a ${selectedRole}`,
-      });
+      // Seed default tasks for new user if API indicates we should
+      if (apiResponse.shouldSeedTasks && userId) {
+        try {
+          console.log('Seeding default tasks for new user:', userId);
+          const seedResponse = await fetch('/api/tasks/seed', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify({ userId }),
+          });
+
+          if (seedResponse.ok) {
+            const seedData = await seedResponse.json();
+            console.log(`Successfully seeded ${seedData.tasks?.length || 0} tasks`);
+            
+            // Store seeded tasks in localStorage for demo mode
+            localStorage.setItem('userTasks', JSON.stringify(seedData.tasks || []));
+            localStorage.setItem('tasksSeeded', 'true');
+            
+            toast({
+              title: "Welcome!",
+              description: `Your account has been set up as a ${selectedRole}. Default tasks have been added to help you get started!`,
+            });
+          } else {
+            console.warn('Task seeding failed, but continuing with role setup');
+            toast({
+              title: "Welcome!",
+              description: `Your account has been set up as a ${selectedRole}`,
+            });
+          }
+        } catch (seedError) {
+          console.error('Task seeding error:', seedError);
+          // Don't fail the role selection if task seeding fails
+          toast({
+            title: "Welcome!",
+            description: `Your account has been set up as a ${selectedRole}`,
+          });
+        }
+      } else {
+        toast({
+          title: "Welcome!",
+          description: `Your account has been set up as a ${selectedRole}`,
+        });
+      }
 
       onRoleSelected();
     } catch (error) {

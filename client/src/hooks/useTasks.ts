@@ -9,6 +9,33 @@ type TaskWithCategory = Task & { category: Category | null };
 export function useTasks() {
   return useQuery<TaskWithCategory[]>({
     queryKey: ["/api/tasks"],
+    queryFn: async () => {
+      // First check if we have user-specific tasks in localStorage (from seeding)
+      const userTasks = localStorage.getItem('userTasks');
+      const tasksSeeded = localStorage.getItem('tasksSeeded');
+      
+      if (userTasks && tasksSeeded === 'true') {
+        try {
+          const tasks = JSON.parse(userTasks);
+          console.log('Using seeded tasks from localStorage:', tasks.length);
+          return tasks;
+        } catch (error) {
+          console.error('Failed to parse user tasks from localStorage:', error);
+        }
+      }
+
+      // Fall back to API if no local tasks
+      console.log('No local tasks found, fetching from API');
+      const response = await fetch('/api/tasks', {
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch tasks');
+      }
+      
+      return response.json();
+    },
   });
 }
 
