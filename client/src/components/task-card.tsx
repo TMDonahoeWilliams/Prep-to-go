@@ -2,7 +2,7 @@ import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, User, MoreVertical } from "lucide-react";
+import { Calendar, User, MoreVertical, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
 import type { Task, Category } from "@shared/schema";
 import {
@@ -84,6 +84,27 @@ export function TaskCard({ task, onToggle, onEdit, onDelete }: TaskCardProps) {
             <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
               {task.description}
             </p>
+          )}
+
+          {(task as any).helpfulLink && (
+            <div className="mb-3">
+              <Button
+                variant="outline"
+                size="sm"
+                asChild
+                className="h-8 text-xs"
+              >
+                <a
+                  href={(task as any).helpfulLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                  Complete Task Online
+                </a>
+              </Button>
+            </div>
           )}
 
           <div className="flex flex-wrap items-center gap-2">

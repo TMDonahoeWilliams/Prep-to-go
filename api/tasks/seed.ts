@@ -15,6 +15,7 @@ const getDefaultTasksForUser = (userId: string) => [
     completedAt: null,
     notes: 'Early submission recommended for maximum aid eligibility. Need tax documents from parents.',
     assignedTo: 'parent',
+    helpfulLink: 'https://studentaid.gov/h/apply-for-aid/fafsa',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     category: {
@@ -33,12 +34,13 @@ const getDefaultTasksForUser = (userId: string) => [
     categoryId: 'cat-2',
     title: 'CSS Profile Application',
     description: 'Complete CSS Profile for private colleges and additional aid programs',
-    dueDate: '2026-02-01T23:59:00Z',
+    dueDate: '2026-01-01T23:59:00Z',
     priority: 'high',
     status: 'pending',
     completedAt: null,
-    notes: 'Required by many private colleges. Check each school\'s specific deadline.',
+    notes: 'Required by many private colleges. Check college-specific deadlines.',
     assignedTo: 'parent',
+    helpfulLink: 'https://cssprofile.collegeboard.org/',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     category: {
@@ -65,6 +67,7 @@ const getDefaultTasksForUser = (userId: string) => [
     completedAt: null,
     notes: 'ED is binding, EA is not. Check each school\'s specific requirements.',
     assignedTo: 'student',
+    helpfulLink: 'https://www.commonapp.org/',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     category: {
@@ -89,6 +92,7 @@ const getDefaultTasksForUser = (userId: string) => [
     completedAt: null,
     notes: 'Most colleges use Common App. Check for any school-specific supplements.',
     assignedTo: 'student',
+    helpfulLink: 'https://www.commonapp.org/',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     category: {
@@ -115,6 +119,7 @@ const getDefaultTasksForUser = (userId: string) => [
     completedAt: null,
     notes: 'Only for PSAT National Merit Semi-finalists. Up to $2,500 award. Extended deadline for 2026 graduates.',
     assignedTo: 'student',
+    helpfulLink: 'https://www.nationalmerit.org/',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     category: {
@@ -139,6 +144,7 @@ const getDefaultTasksForUser = (userId: string) => [
     completedAt: null,
     notes: 'Leadership and academic excellence. 150 winners annually. Must be high school senior.',
     assignedTo: 'student',
+    helpfulLink: 'https://www.coca-colascholarsfoundation.org/',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     category: {
@@ -163,6 +169,7 @@ const getDefaultTasksForUser = (userId: string) => [
     completedAt: null,
     notes: 'High-achieving students with financial need. Must have 3.5+ GPA and demonstrate leadership.',
     assignedTo: 'student',
+    helpfulLink: 'https://www.jkcf.org/our-scholarships/college-scholarship-program/',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     category: {
@@ -189,6 +196,7 @@ const getDefaultTasksForUser = (userId: string) => [
     completedAt: null,
     notes: 'Order through College Board (SAT) or ACT.org. Allow 2-3 weeks for delivery.',
     assignedTo: 'student',
+    helpfulLink: 'https://www.collegeboard.org/send-scores',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     category: {
@@ -263,6 +271,7 @@ const getDefaultTasksForUser = (userId: string) => [
     completedAt: null,
     notes: 'Most colleges require housing deposit by May 1st. Usually $200-500.',
     assignedTo: 'parent',
+    helpfulLink: 'https://bigfuture.collegeboard.org/plan-for-college/college-basics/applying-to-college/college-application-checklist',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     category: {
