@@ -43,6 +43,13 @@ export function TaskSeedingPrompt({ tasks = [], onDismiss }: TaskSeedingPromptPr
 
   const handleSeedTasks = async () => {
     const userId = (user as any)?.id;
+    console.log('TaskSeedingPrompt: Attempting to seed tasks', { 
+      user, 
+      userId,
+      userType: typeof user,
+      userKeys: user ? Object.keys(user) : 'no user'
+    });
+    
     if (!userId) {
       toast({
         title: "Error",
@@ -63,9 +70,10 @@ export function TaskSeedingPrompt({ tasks = [], onDismiss }: TaskSeedingPromptPr
       setShowPrompt(false);
       onDismiss?.();
     } catch (error) {
+      console.error('Task seeding error:', error);
       toast({
         title: "Error Adding Tasks",
-        description: "Failed to add default tasks. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to add default tasks. Please try again.",
         variant: "destructive",
       });
     }

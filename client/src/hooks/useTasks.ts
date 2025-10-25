@@ -118,7 +118,15 @@ export function useSeedTasks() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to seed tasks');
+        const errorText = await response.text();
+        console.error('Task seeding failed:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorText,
+          url: '/api/tasks/seed',
+          userId
+        });
+        throw new Error(`Failed to seed tasks: ${response.status} ${response.statusText} - ${errorText}`);
       }
 
       return response.json();
