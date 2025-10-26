@@ -52,6 +52,28 @@ export default function Tasks() {
     }
   };
 
+  const handleStatusChange = async (id: string, status: string) => {
+    try {
+      await updateTask.mutateAsync({
+        id,
+        data: {
+          status: status as any,
+          completedAt: status === "completed" ? new Date() : null,
+        },
+      });
+      toast({
+        title: "Success",
+        description: "Task status updated successfully",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update task status",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleTaskDelete = async (id: string) => {
     try {
       await deleteTask.mutateAsync(id);
@@ -243,6 +265,7 @@ export default function Tasks() {
                 key={task.id}
                 task={task}
                 onToggle={(completed) => handleTaskToggle(task.id, completed)}
+                onStatusChange={(status) => handleStatusChange(task.id, status)}
                 onEdit={() => handleTaskEdit(task)}
                 onDelete={() => handleTaskDelete(task.id)}
               />
@@ -261,6 +284,7 @@ export default function Tasks() {
                 key={task.id}
                 task={task}
                 onToggle={(completed) => handleTaskToggle(task.id, completed)}
+                onStatusChange={(status) => handleStatusChange(task.id, status)}
                 onEdit={() => handleTaskEdit(task)}
                 onDelete={() => handleTaskDelete(task.id)}
               />
@@ -279,6 +303,7 @@ export default function Tasks() {
                 key={task.id}
                 task={task}
                 onToggle={(completed) => handleTaskToggle(task.id, completed)}
+                onStatusChange={(status) => handleStatusChange(task.id, status)}
                 onEdit={() => handleTaskEdit(task)}
                 onDelete={() => handleTaskDelete(task.id)}
               />
@@ -297,6 +322,7 @@ export default function Tasks() {
                 key={task.id}
                 task={task}
                 onToggle={(completed) => handleTaskToggle(task.id, completed)}
+                onStatusChange={(status) => handleStatusChange(task.id, status)}
                 onEdit={() => handleTaskEdit(task)}
                 onDelete={() => handleTaskDelete(task.id)}
               />

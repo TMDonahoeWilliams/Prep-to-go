@@ -2,7 +2,7 @@ import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, User, MoreVertical, ExternalLink } from "lucide-react";
+import { Calendar, User, MoreVertical, ExternalLink, CheckCircle, Clock, Play } from "lucide-react";
 import { format } from "date-fns";
 import type { Task, Category } from "@shared/schema";
 import {
@@ -11,10 +11,18 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface TaskCardProps {
   task: Task & { category?: Category };
   onToggle: (id: string, completed: boolean) => void;
+  onStatusChange: (id: string, status: string) => void;
   onEdit: (task: Task) => void;
   onDelete: (id: string) => void;
 }
@@ -26,7 +34,19 @@ const priorityColors = {
   urgent: "bg-destructive/10 text-destructive border-destructive/20",
 };
 
-export function TaskCard({ task, onToggle, onEdit, onDelete }: TaskCardProps) {
+const statusColors = {
+  pending: "bg-gray-100 text-gray-700 border-gray-200",
+  in_progress: "bg-blue-100 text-blue-700 border-blue-200",
+  completed: "bg-green-100 text-green-700 border-green-200",
+};
+
+const statusIcons = {
+  pending: Clock,
+  in_progress: Play,
+  completed: CheckCircle,
+};
+
+export function TaskCard({ task, onToggle, onStatusChange, onEdit, onDelete }: TaskCardProps) {
   const isCompleted = task.status === 'completed';
   const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && !isCompleted;
 
@@ -107,7 +127,7 @@ export function TaskCard({ task, onToggle, onEdit, onDelete }: TaskCardProps) {
             </div>
           )}
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 mb-3">
             {task.category && (
               <Badge variant="secondary" className="text-xs">
                 {task.category.name}
@@ -138,6 +158,48 @@ export function TaskCard({ task, onToggle, onEdit, onDelete }: TaskCardProps) {
                 <span className="capitalize">{task.assignedTo}</span>
               </div>
             )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Status:</span>
+            <Select
+              value={task.status}
+              onValueChange={(value) => onStatusChange(task.id, value)}
+            >
+              <SelectTrigger className="h-7 w-auto min-w-[120px] text-xs border-0 p-1">
+                <SelectValue>
+                  <div className="flex items-center gap-1">
+                    {(() => {
+                      const StatusIcon = statusIcons[task.status as keyof typeof statusIcons];
+                      return <StatusIcon className="h-3 w-3" />;
+                    })()}
+                    <span className="capitalize">
+                      {task.status === 'in_progress' ? 'In Progress' : task.status}
+                    </span>
+                  </div>
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pending">
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-3 w-3" />
+                    <span>Pending</span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="in_progress">
+                  <div className="flex items-center gap-2">
+                    <Play className="h-3 w-3" />
+                    <span>In Progress</span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="completed">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-3 w-3" />
+                    <span>Completed</span>
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
       </div>
