@@ -1,8 +1,12 @@
 import { createClient } from '@supabase/supabase-js'
 
-// These would come from your Supabase project settings
-const supabaseUrl = process.env.VITE_SUPABASE_URL || 'https://your-project.supabase.co'
-const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || 'your-anon-key'
+// Supabase project configuration
+const supabaseUrl = 'https://abkpizrrlcstjihshlat.supabase.co'
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.SUPABASE_KEY
+
+if (!supabaseAnonKey) {
+  throw new Error('Missing Supabase anon key. Please set VITE_SUPABASE_ANON_KEY or SUPABASE_KEY environment variable')
+}
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 

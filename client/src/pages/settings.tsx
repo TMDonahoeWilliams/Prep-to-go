@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { SeedTasksButton } from "@/components/seed-tasks-button";
+import { SupabaseTestPanel } from "@/components/supabase-test-panel";
 import {
   Select,
   SelectContent,
@@ -362,6 +363,9 @@ export default function Settings() {
           Log Out
         </Button>
       </Card>
+
+      {/* Supabase Integration Test Panel */}
+      <SupabaseTestPanel />
     </div>
   );
 }

@@ -138,14 +138,14 @@ CREATE POLICY "Users can view own relations" ON public.parent_student_relations
 CREATE POLICY "Parents can create relations" ON public.parent_student_relations
     FOR INSERT WITH CHECK (auth.uid() = parent_id);
 
--- Insert default categories
+-- Insert default categories (using hardcoded UUIDs for consistency)
 INSERT INTO public.categories (id, name, description, color, icon, sort_order) VALUES
-    ('cat-1', 'College Applications', 'Application deadlines, essays, and submissions', 'chart-1', 'GraduationCap', 1),
-    ('cat-2', 'Financial Aid & FAFSA', 'Financial aid forms, scholarships, and FAFSA submission', 'chart-2', 'DollarSign', 2),
-    ('cat-3', 'Housing & Registration', 'Dorm applications, course registration, and enrollment', 'chart-3', 'Home', 3),
-    ('cat-4', 'Testing & Transcripts', 'Standardized tests, transcripts, and academic records', 'chart-4', 'BookOpen', 4),
-    ('cat-5', 'Health & Documentation', 'Medical forms, insurance, and health requirements', 'chart-5', 'Heart', 5),
-    ('cat-6', 'Move-In Preparation', 'Orientation, packing, and transition planning', 'chart-6', 'Package', 6);
+    ('df6a446f-ab40-49ac-845f-9fc7c192a000', 'College Applications', 'Application deadlines, essays, and submissions', 'chart-1', 'GraduationCap', 1),
+    ('c1a83e9c-8619-48be-a76c-997a6579c000', 'Financial Aid & FAFSA', 'Financial aid forms, scholarships, and FAFSA submission', 'chart-2', 'DollarSign', 2),
+    ('8ee12cdc-45aa-409c-bcf4-a69167a0859e', 'Housing & Registration', 'Dorm applications, course registration, and enrollment', 'chart-3', 'Home', 3),
+    ('a807e9bc-133b-4b8c-aad6-e513ff16bf4c', 'Testing & Transcripts', 'Standardized tests, transcripts, and academic records', 'chart-4', 'BookOpen', 4),
+    ('5a20dd15-4d99-457e-9313-af22d3e6ae00', 'Health & Documentation', 'Medical forms, insurance, and health requirements', 'chart-5', 'Heart', 5),
+    ('3b871a7d-31a5-4385-b21c-a14bf239ffeb', 'Move-In Preparation', 'Orientation, packing, and transition planning', 'chart-6', 'Package', 6);
 
 -- Functions for updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
