@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/lib/supabase";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import type { Database } from "@/lib/supabase";
 import { useAuth } from "./useAuth";
 
@@ -17,6 +17,7 @@ export function useTasksSupabase() {
     queryKey: ["tasks", user?.id],
     queryFn: async () => {
       if (!user?.id) throw new Error("User not authenticated");
+      if (!isSupabaseConfigured() || !supabase) throw new Error("Supabase not configured");
 
       const { data, error } = await supabase
         .from('tasks')
@@ -30,7 +31,7 @@ export function useTasksSupabase() {
       if (error) throw error;
       return data as TaskWithCategory[];
     },
-    enabled: !!user?.id,
+    enabled: !!user?.id && isSupabaseConfigured(),
   });
 }
 

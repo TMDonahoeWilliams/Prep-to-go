@@ -13,6 +13,7 @@ import { Paywall } from "@/components/paywall";
 import { RoleSelection } from "@/components/role-selection";
 import { AuthPage } from "@/components/auth-page";
 import { RegistrationFlow } from "@/components/registration-flow";
+import ErrorBoundary from "@/components/error-boundary";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
 import Dashboard from "@/pages/dashboard";
@@ -136,12 +137,14 @@ function AppContent() {
 
 export default function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider defaultTheme="light">
-        <TooltipProvider>
-          <AppContent />
-        </TooltipProvider>
-      </ThemeProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider defaultTheme="light">
+          <TooltipProvider>
+            <AppContent />
+          </TooltipProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }

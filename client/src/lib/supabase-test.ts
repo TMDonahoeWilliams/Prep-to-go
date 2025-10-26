@@ -1,9 +1,14 @@
-import { supabase } from '../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 // Simple Supabase connection test
 export async function testSupabaseConnection() {
   try {
     console.log('🔄 Testing Supabase connection...');
+    
+    if (!isSupabaseConfigured() || !supabase) {
+      console.error('❌ Supabase is not configured. Please set VITE_SUPABASE_ANON_KEY environment variable.');
+      return false;
+    }
     
     // Test 1: Basic connection
     const { data, error } = await supabase
@@ -47,6 +52,11 @@ export async function testSupabaseConnection() {
 export async function testSupabaseAuth() {
   try {
     console.log('🔄 Testing Supabase auth...');
+    
+    if (!isSupabaseConfigured() || !supabase) {
+      console.error('❌ Supabase is not configured for auth testing.');
+      return false;
+    }
     
     const { data: { session } } = await supabase.auth.getSession();
     

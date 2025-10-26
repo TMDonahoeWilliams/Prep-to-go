@@ -2,13 +2,17 @@ import { createClient } from '@supabase/supabase-js'
 
 // Supabase project configuration
 const supabaseUrl = 'https://abkpizrrlcstjihshlat.supabase.co'
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.SUPABASE_KEY
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.SUPABASE_KEY || 'dummy-key-for-build'
 
-if (!supabaseAnonKey) {
-  throw new Error('Missing Supabase anon key. Please set VITE_SUPABASE_ANON_KEY or SUPABASE_KEY environment variable')
-}
-
+// Always create the client to prevent build issues
+// Use a dummy key if environment variables aren't set
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+
+// Helper function to check if Supabase is properly configured
+export function isSupabaseConfigured(): boolean {
+  const key = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.SUPABASE_KEY;
+  return !!key && key !== 'dummy-key-for-build';
+}
 
 // Database types based on your existing schema
 export type Database = {
