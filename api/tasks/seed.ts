@@ -1,12 +1,22 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
+// Supabase Category UUIDs (from actual database)
+const SUPABASE_CATEGORY_IDS = {
+  'College Applications': 'df6a446f-ab40-49ac-845f-9fc7c192a000',
+  'Financial Aid & FAFSA': 'c1a83e9c-8619-48be-a76c-997a6579c000',
+  'Housing & Registration': '8ee12cdc-45aa-409c-bcf4-a69167a0859e',
+  'Testing & Transcripts': 'a807e9bc-133b-4b8c-aad6-e513ff16bf4c',
+  'Health & Documentation': '5a20dd15-4d99-457e-9313-af22d3e6ae00',
+  'Move-In Preparation': '3b871a7d-31a5-4385-b21c-a14bf239ffeb'
+} as const;
+
 // Default tasks that every new user should have (using realistic 2026-2027 deadlines)
 const getDefaultTasksForUser = (userId: string) => [
   // FAFSA and Financial Aid (Critical Timeline)
   {
     id: `fafsa-1-${userId}`,
     userId,
-    categoryId: 'cat-2',
+    categoryId: SUPABASE_CATEGORY_IDS['Financial Aid & FAFSA'],
     title: '🚨 Complete FAFSA Application',
     description: 'Submit the Free Application for Federal Student Aid (FAFSA) as early as possible. Federal deadline is June 30, but state and college deadlines are much earlier.',
     dueDate: '2026-01-01T23:59:00Z',
@@ -19,7 +29,7 @@ const getDefaultTasksForUser = (userId: string) => [
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     category: {
-      id: 'cat-2',
+      id: SUPABASE_CATEGORY_IDS['Financial Aid & FAFSA'],
       name: 'Financial Aid & FAFSA',
       description: 'Financial aid forms, scholarships, and FAFSA submission',
       color: 'chart-2',
@@ -31,7 +41,7 @@ const getDefaultTasksForUser = (userId: string) => [
   {
     id: `css-profile-${userId}`,
     userId,
-    categoryId: 'cat-2',
+    categoryId: SUPABASE_CATEGORY_IDS['Financial Aid & FAFSA'],
     title: 'CSS Profile Application',
     description: 'Complete CSS Profile for private colleges and additional aid programs',
     dueDate: '2026-01-01T23:59:00Z',
@@ -44,7 +54,7 @@ const getDefaultTasksForUser = (userId: string) => [
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     category: {
-      id: 'cat-2',
+      id: SUPABASE_CATEGORY_IDS['Financial Aid & FAFSA'],
       name: 'Financial Aid & FAFSA',
       description: 'Financial aid forms, scholarships, and FAFSA submission',
       color: 'chart-2',
@@ -58,7 +68,7 @@ const getDefaultTasksForUser = (userId: string) => [
   {
     id: `early-apps-${userId}`,
     userId,
-    categoryId: 'cat-1',
+    categoryId: SUPABASE_CATEGORY_IDS['College Applications'],
     title: 'Early Decision/Action Applications',
     description: 'Submit early decision and early action applications for priority consideration',
     dueDate: '2025-11-01T23:59:00Z',
@@ -71,7 +81,7 @@ const getDefaultTasksForUser = (userId: string) => [
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     category: {
-      id: 'cat-1',
+      id: SUPABASE_CATEGORY_IDS['College Applications'],
       name: 'College Applications',
       description: 'College application deadlines and requirements',
       color: 'chart-1',
@@ -83,7 +93,7 @@ const getDefaultTasksForUser = (userId: string) => [
   {
     id: `common-app-${userId}`,
     userId,
-    categoryId: 'cat-1',
+    categoryId: SUPABASE_CATEGORY_IDS['College Applications'],
     title: 'Common Application Deadline',
     description: 'Submit Common Application for regular decision to all selected colleges',
     dueDate: '2026-01-01T23:59:00Z',
@@ -96,7 +106,7 @@ const getDefaultTasksForUser = (userId: string) => [
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     category: {
-      id: 'cat-1',
+      id: SUPABASE_CATEGORY_IDS['College Applications'],
       name: 'College Applications',
       description: 'College application deadlines and requirements',
       color: 'chart-1',
@@ -110,7 +120,7 @@ const getDefaultTasksForUser = (userId: string) => [
   {
     id: `merit-scholar-${userId}`,
     userId,
-    categoryId: 'cat-2',
+    categoryId: SUPABASE_CATEGORY_IDS['Financial Aid & FAFSA'],
     title: '💰 National Merit Scholarship',
     description: 'Complete National Merit Scholarship application if semi-finalist',
     dueDate: '2026-02-15T23:59:00Z',
@@ -123,7 +133,7 @@ const getDefaultTasksForUser = (userId: string) => [
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     category: {
-      id: 'cat-2',
+      id: SUPABASE_CATEGORY_IDS['Financial Aid & FAFSA'],
       name: 'Financial Aid & FAFSA',
       description: 'Financial aid forms, scholarships, and FAFSA submission',
       color: 'chart-2',
@@ -135,7 +145,7 @@ const getDefaultTasksForUser = (userId: string) => [
   {
     id: `coca-cola-${userId}`,
     userId,
-    categoryId: 'cat-2',
+    categoryId: SUPABASE_CATEGORY_IDS['Financial Aid & FAFSA'],
     title: '💰 Coca-Cola Scholars Program',
     description: 'Apply for $20,000 Coca-Cola Scholars Program scholarship',
     dueDate: '2026-01-31T23:59:00Z',
@@ -148,7 +158,7 @@ const getDefaultTasksForUser = (userId: string) => [
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     category: {
-      id: 'cat-2',
+      id: SUPABASE_CATEGORY_IDS['Financial Aid & FAFSA'],
       name: 'Financial Aid & FAFSA',
       description: 'Financial aid forms, scholarships, and FAFSA submission',
       color: 'chart-2',
@@ -160,7 +170,7 @@ const getDefaultTasksForUser = (userId: string) => [
   {
     id: `cooke-foundation-${userId}`,
     userId,
-    categoryId: 'cat-2',
+    categoryId: SUPABASE_CATEGORY_IDS['Financial Aid & FAFSA'],
     title: '💰 Jack Kent Cooke Foundation Scholarship',
     description: 'Apply for Jack Kent Cooke Foundation College Scholarship (up to $55,000/year)',
     dueDate: '2026-11-15T23:59:00Z',
@@ -173,7 +183,7 @@ const getDefaultTasksForUser = (userId: string) => [
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     category: {
-      id: 'cat-2',
+      id: SUPABASE_CATEGORY_IDS['Financial Aid & FAFSA'],
       name: 'Financial Aid & FAFSA',
       description: 'Financial aid forms, scholarships, and FAFSA submission',
       color: 'chart-2',
@@ -187,7 +197,7 @@ const getDefaultTasksForUser = (userId: string) => [
   {
     id: `send-scores-${userId}`,
     userId,
-    categoryId: 'cat-4',
+    categoryId: SUPABASE_CATEGORY_IDS['Testing & Transcripts'],
     title: 'Send SAT/ACT Scores',
     description: 'Send official test scores to all colleges on your list',
     dueDate: '2025-12-15T23:59:00Z',
@@ -200,7 +210,7 @@ const getDefaultTasksForUser = (userId: string) => [
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     category: {
-      id: 'cat-4',
+      id: SUPABASE_CATEGORY_IDS['Testing & Transcripts'],
       name: 'Testing & Transcripts',
       description: 'Standardized tests, transcripts, and academic records',
       color: 'chart-4',
@@ -212,7 +222,7 @@ const getDefaultTasksForUser = (userId: string) => [
   {
     id: `request-transcripts-${userId}`,
     userId,
-    categoryId: 'cat-4',
+    categoryId: SUPABASE_CATEGORY_IDS['Testing & Transcripts'],
     title: 'Request High School Transcripts',
     description: 'Request official transcripts from high school for all college applications',
     dueDate: '2025-12-01T23:59:00Z',
@@ -224,7 +234,7 @@ const getDefaultTasksForUser = (userId: string) => [
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     category: {
-      id: 'cat-4',
+      id: SUPABASE_CATEGORY_IDS['Testing & Transcripts'],
       name: 'Testing & Transcripts',
       description: 'Standardized tests, transcripts, and academic records',
       color: 'chart-4',
@@ -236,7 +246,7 @@ const getDefaultTasksForUser = (userId: string) => [
   {
     id: `final-transcript-${userId}`,
     userId,
-    categoryId: 'cat-4',
+    categoryId: SUPABASE_CATEGORY_IDS['Testing & Transcripts'],
     title: 'Final Transcript After Graduation',
     description: 'Send final high school transcript to enrolled college',
     dueDate: '2026-07-01T23:59:00Z',
@@ -248,7 +258,7 @@ const getDefaultTasksForUser = (userId: string) => [
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     category: {
-      id: 'cat-4',
+      id: SUPABASE_CATEGORY_IDS['Testing & Transcripts'],
       name: 'Testing & Transcripts',
       description: 'Standardized tests, transcripts, and academic records',
       color: 'chart-4',
@@ -262,7 +272,7 @@ const getDefaultTasksForUser = (userId: string) => [
   {
     id: `housing-deposit-${userId}`,
     userId,
-    categoryId: 'cat-3',
+    categoryId: SUPABASE_CATEGORY_IDS['Housing & Registration'],
     title: 'Housing Application Deposit',
     description: 'Submit housing application and deposit to secure on-campus housing',
     dueDate: '2026-05-01T23:59:00Z',
@@ -275,7 +285,7 @@ const getDefaultTasksForUser = (userId: string) => [
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     category: {
-      id: 'cat-3',
+      id: SUPABASE_CATEGORY_IDS['Housing & Registration'],
       name: 'Housing & Registration',
       description: 'Dorm applications, course registration, and enrollment',
       color: 'chart-3',
@@ -287,7 +297,7 @@ const getDefaultTasksForUser = (userId: string) => [
   {
     id: `immunizations-${userId}`,
     userId,
-    categoryId: 'cat-5',
+    categoryId: SUPABASE_CATEGORY_IDS['Health & Documentation'],
     title: 'Immunization Records',
     description: 'Submit required immunization records to college health center',
     dueDate: '2026-07-01T23:59:00Z',
@@ -299,7 +309,7 @@ const getDefaultTasksForUser = (userId: string) => [
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     category: {
-      id: 'cat-5',
+      id: SUPABASE_CATEGORY_IDS['Health & Documentation'],
       name: 'Health & Documentation',
       description: 'Medical forms, insurance, and health requirements',
       color: 'chart-5',
