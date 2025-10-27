@@ -213,9 +213,6 @@ function CheckoutFormInner({
                 }}
               />
             </div>
-            <p className="text-xs text-muted-foreground">
-              Use test card: 4242 4242 4242 4242
-            </p>
           </div>
 
           {error && (
