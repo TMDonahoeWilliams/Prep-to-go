@@ -7,6 +7,7 @@ import { Check, CreditCard, Shield, Clock } from "lucide-react";
 import { PRICING_PLANS } from "@/lib/stripe";
 import { CheckoutForm } from "./checkout-form.tsx";
 import { useLocation } from "wouter";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface PaymentModalProps {
   isOpen: boolean;
@@ -19,6 +20,30 @@ export function PaymentModal({ isOpen, onClose, userEmail, onPaymentComplete }: 
   const [showCheckout, setShowCheckout] = useState(false);
   const plan = PRICING_PLANS.BASIC;
   const [, setLocation] = useLocation();
+  const queryClient = useQueryClient();
+
+  const handlePaymentSuccess = () => {
+    console.log('Payment successful - redirecting to dashboard');
+    
+    // Invalidate payment status query to force refresh
+    queryClient.invalidateQueries({ queryKey: ["/api/payments/check-access"] });
+    
+    // Close the modal
+    onClose();
+    
+    // Execute custom callback if provided
+    if (onPaymentComplete) {
+      onPaymentComplete();
+    }
+    
+    // Navigate to dashboard
+    setLocation('/');
+    
+    // Force page reload to ensure auth state is refreshed
+    setTimeout(() => {
+      window.location.href = '/';
+    }, 100);
+  };
 
   if (showCheckout) {
     return (
@@ -35,15 +60,7 @@ export function PaymentModal({ isOpen, onClose, userEmail, onPaymentComplete }: 
             amount={plan.price}
             currency={plan.currency}
             userEmail={userEmail}
-            onSuccess={() => {
-              onClose();
-              if (onPaymentComplete) {
-                onPaymentComplete();
-              } else {
-                // Navigate to dashboard explicitly after payment
-                setLocation('/');
-              }
-            }}
+            onSuccess={handlePaymentSuccess}
             onCancel={() => setShowCheckout(false)}
           />
         </DialogContent>

@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, CreditCard, ArrowLeft } from "lucide-react";
+import { Loader2, CreditCard, ArrowLeft, CheckCircle } from "lucide-react";
 import { loadStripe } from '@stripe/stripe-js';
 import {
   Elements,
@@ -12,6 +12,7 @@ import {
   useStripe,
   useElements
 } from '@stripe/react-stripe-js';
+import { useToast } from "@/hooks/use-toast";
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '');
 
@@ -35,6 +36,7 @@ function CheckoutFormInner({
 }: CheckoutFormProps) {
   const stripe = useStripe();
   const elements = useElements();
+  const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
@@ -148,8 +150,20 @@ function CheckoutFormInner({
         }));
 
         console.log('Payment completed successfully');
+        
+        // Show success toast
+        toast({
+          title: "Payment Successful! 🎉",
+          description: "Welcome to College Prep Organizer! Redirecting to your dashboard...",
+          duration: 3000,
+        });
+        
         setIsLoading(false);
-        onSuccess();
+        
+        // Small delay to show success message before redirect
+        setTimeout(() => {
+          onSuccess();
+        }, 1000);
       } else {
         throw new Error('Payment was not completed successfully');
       }
