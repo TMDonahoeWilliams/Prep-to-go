@@ -50,14 +50,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const { amount, currency, userEmail, priceId } = validationResult.data;
 
-    // Initialize Stripe with secret key
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-      apiVersion: '2025-09-30.clover',
-    });
-
+    // Verify Stripe secret key is configured
     if (!process.env.STRIPE_SECRET_KEY) {
       console.error('STRIPE_SECRET_KEY not configured');
       return res.status(500).json({ message: 'Payment system not configured' });
+    }
+
+    // Initialize Stripe with secret key
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+      apiVersion: '2024-11-20.acacia',
+    });
     }
 
     console.log(`Creating payment intent for ${userEmail}: $${amount/100} ${currency}`);
