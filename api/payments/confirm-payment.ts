@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { z } from 'zod';
+import Stripe from 'stripe';
 
 const confirmPaymentSchema = z.object({
   paymentIntentId: z.string().min(1, "Payment intent ID is required"),
@@ -47,37 +48,100 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const { paymentIntentId, userEmail } = validationResult.data;
 
-    // For demo purposes, simulate successful payment confirmation
-    // In a real production app, you would:
-    // 1. Verify the payment with Stripe using the payment intent ID
-    // 2. Update the user's payment status in your database
-    // 3. Create a subscription or access record
-    
+    // Initialize Stripe with secret key
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
+      apiVersion: '2025-09-30.clover',
+    });
+
+    if (!process.env.STRIPE_SECRET_KEY) {
+      console.error('STRIPE_SECRET_KEY not configured');
+      return res.status(500).json({ message: 'Payment system not configured' });
+    }
+
     console.log(`Confirming payment for ${userEmail} with intent ${paymentIntentId}`);
 
-    // Simulate successful payment confirmation
+    // Retrieve the payment intent from Stripe to verify its status
+    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+
+    if (!paymentIntent) {
+      return res.status(404).json({
+        success: false,
+        message: 'Payment intent not found'
+      });
+    }
+
+    // Check if payment was successful
+    if (paymentIntent.status !== 'succeeded') {
+      return res.status(400).json({
+        success: false,
+        message: `Payment not completed. Status: ${paymentIntent.status}`,
+        status: paymentIntent.status
+      });
+    }
+
+    // Verify email matches (optional security check)
+    if (paymentIntent.metadata?.userEmail !== userEmail) {
+      console.warn(`Email mismatch: expected ${userEmail}, got ${paymentIntent.metadata?.userEmail}`);
+    }
+
+    // Payment confirmed successfully
     const confirmation = {
       success: true,
-      paymentIntentId: paymentIntentId,
+      paymentIntentId: paymentIntent.id,
       userEmail: userEmail,
-      amount: 499, // $4.99 in cents
-      currency: 'usd',
-      status: 'succeeded',
+      amount: paymentIntent.amount,
+      currency: paymentIntent.currency,
+      status: paymentIntent.status,
       confirmedAt: new Date().toISOString(),
       accessGranted: true,
       subscription: {
         status: 'active',
         planType: 'basic',
         expiresAt: null, // lifetime access
+      },
+      stripeData: {
+        created: paymentIntent.created,
+        description: paymentIntent.description,
+        receiptEmail: paymentIntent.receipt_email,
       }
     };
 
-    console.log('Payment confirmed successfully for:', userEmail);
+    console.log('Payment confirmed successfully for:', userEmail, 'Amount:', paymentIntent.amount);
 
     return res.status(200).json(confirmation);
 
   } catch (error: any) {
     console.error('Payment confirmation error:', error);
+
+    // Handle Stripe-specific errors
+    if (error.type === 'StripeInvalidRequestError') {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid payment intent ID'
+      });
+    }
+
+    if (error.type === 'StripeAPIError') {
+      return res.status(500).json({
+        success: false,
+        message: 'Payment service temporarily unavailable'
+      });
+    }
+
+    if (error.type === 'StripeConnectionError') {
+      return res.status(500).json({
+        success: false,
+        message: 'Network error, please try again'
+      });
+    }
+
+    if (error.type === 'StripeAuthenticationError') {
+      console.error('Stripe authentication failed - check API keys');
+      return res.status(500).json({
+        success: false,
+        message: 'Payment system configuration error'
+      });
+    }
     
     // Ensure we always return JSON, even on errors
     try {
