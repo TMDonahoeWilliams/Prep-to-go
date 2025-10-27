@@ -16,6 +16,7 @@ const getDefaultTasks = (userId: string, categoryMap: Record<string, string>) =>
     status: 'pending' as const,
     notes: 'Early submission recommended for maximum aid eligibility. Need tax documents from parents.',
     assignedTo: 'parent' as const,
+    helpfulLink: 'https://studentaid.gov/h/apply-for-aid/fafsa',
   },
   {
     userId,
@@ -27,6 +28,7 @@ const getDefaultTasks = (userId: string, categoryMap: Record<string, string>) =>
     status: 'pending' as const,
     notes: 'Required by many private colleges. Check each school\'s specific deadline.',
     assignedTo: 'parent' as const,
+    helpfulLink: 'https://cssprofile.collegeboard.org/',
   },
 
   // College Application Deadlines
@@ -40,6 +42,7 @@ const getDefaultTasks = (userId: string, categoryMap: Record<string, string>) =>
     status: 'pending' as const,
     notes: 'ED is binding, EA is not. Check each school\'s specific requirements.',
     assignedTo: 'student' as const,
+    helpfulLink: 'https://www.commonapp.org/',
   },
   {
     userId,
@@ -51,6 +54,7 @@ const getDefaultTasks = (userId: string, categoryMap: Record<string, string>) =>
     status: 'pending' as const,
     notes: 'Most colleges use Common App. Check for any school-specific supplements.',
     assignedTo: 'student' as const,
+    helpfulLink: 'https://www.commonapp.org/',
   },
 
   // Major Scholarships
@@ -64,6 +68,7 @@ const getDefaultTasks = (userId: string, categoryMap: Record<string, string>) =>
     status: 'pending' as const,
     notes: 'Only for PSAT National Merit Semi-finalists. Up to $2,500 award.',
     assignedTo: 'student' as const,
+    helpfulLink: 'https://www.nationalmerit.org/',
   },
   {
     userId,
@@ -75,6 +80,7 @@ const getDefaultTasks = (userId: string, categoryMap: Record<string, string>) =>
     status: 'pending' as const,
     notes: 'Leadership and academic excellence. 150 winners annually. Must be high school senior.',
     assignedTo: 'student' as const,
+    helpfulLink: 'https://www.coca-colascholarsfoundation.org/',
   },
   {
     userId,
@@ -86,6 +92,7 @@ const getDefaultTasks = (userId: string, categoryMap: Record<string, string>) =>
     status: 'pending' as const,
     notes: 'High-achieving students with financial need. Must have 3.5+ GPA and demonstrate leadership.',
     assignedTo: 'student' as const,
+    helpfulLink: 'https://www.jkcf.org/our-scholarships/college-scholarship-program/',
   },
 
   // Testing and Transcripts
@@ -99,6 +106,7 @@ const getDefaultTasks = (userId: string, categoryMap: Record<string, string>) =>
     status: 'pending' as const,
     notes: 'Order through College Board (SAT) or ACT.org. Allow 2-3 weeks for delivery.',
     assignedTo: 'student' as const,
+    helpfulLink: 'https://www.collegeboard.org/send-scores',
   },
   {
     userId,
@@ -134,6 +142,7 @@ const getDefaultTasks = (userId: string, categoryMap: Record<string, string>) =>
     status: 'pending' as const,
     notes: 'Most colleges require housing deposit by May 1st. Usually $200-500.',
     assignedTo: 'parent' as const,
+    helpfulLink: 'https://bigfuture.collegeboard.org/plan-for-college/college-basics/applying-to-college/college-application-checklist',
   },
   {
     userId,
@@ -145,6 +154,7 @@ const getDefaultTasks = (userId: string, categoryMap: Record<string, string>) =>
     status: 'pending' as const,
     notes: 'Required for enrollment. May need additional vaccines like meningitis.',
     assignedTo: 'parent' as const,
+    helpfulLink: 'https://www.cdc.gov/vaccines/adults/rec-vac/college/index.html',
   },
 ];
 

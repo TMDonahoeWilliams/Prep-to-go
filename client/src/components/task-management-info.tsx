@@ -44,8 +44,9 @@ export function TaskManagementInfo({
         <Alert>
           <Lightbulb className="h-4 w-4" />
           <AlertDescription>
-            <strong>All tasks are fully editable!</strong> You can modify seeded tasks to match your specific needs, 
-            deadlines, and requirements. Add helpful links, update descriptions, change due dates, and more.
+            <strong>All tasks are fully expandable and editable!</strong> Click the expand arrow (🔽) on any task to see full details, 
+            then click "Edit" to modify seeded tasks to match your specific needs, deadlines, and requirements. 
+            Add helpful links, update descriptions, change due dates, and more.
           </AlertDescription>
         </Alert>
 
@@ -64,10 +65,14 @@ export function TaskManagementInfo({
           </Badge>
         </div>
 
-        <div className="flex justify-center">
+        <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <Button onClick={onCreateTask} className="flex items-center gap-2">
             <Plus className="h-4 w-4" />
             Create Custom Task
+          </Button>
+          <Button variant="outline" className="flex items-center gap-2">
+            <Edit3 className="h-4 w-4" />
+            Click any task to expand & edit
           </Button>
         </div>
       </CardContent>

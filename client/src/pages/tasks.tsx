@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { TaskCard } from "@/components/task-card";
 import { TaskDialog } from "@/components/task-dialog";
 import { TaskManagementInfo } from "@/components/task-management-info";
+import { SeededTaskPrompt } from "@/components/seeded-task-prompt";
 import { Plus, Search } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -165,6 +166,11 @@ export default function Tasks() {
       {/* Task Seeding Prompt for Existing Users */}
       <TaskSeedingPrompt tasks={tasks} />
       
+      {/* Seeded Task Customization Prompt */}
+      {seededTasksCount > 0 && (
+        <SeededTaskPrompt seededTasksCount={seededTasksCount} />
+      )}
+      
       {/* Task Management Info */}
       <TaskManagementInfo
         totalTasks={tasks.length}
@@ -288,8 +294,8 @@ export default function Tasks() {
               <TaskCard
                 key={task.id}
                 task={task}
-                onToggle={(completed) => handleTaskToggle(task.id, completed)}
-                onStatusChange={(status) => handleStatusChange(task.id, status)}
+                onToggle={handleTaskToggle}
+                onStatusChange={handleStatusChange}
                 onEdit={() => handleTaskEdit(task)}
                 onDelete={() => handleTaskDelete(task.id)}
               />
@@ -307,8 +313,8 @@ export default function Tasks() {
               <TaskCard
                 key={task.id}
                 task={task}
-                onToggle={(completed) => handleTaskToggle(task.id, completed)}
-                onStatusChange={(status) => handleStatusChange(task.id, status)}
+                onToggle={handleTaskToggle}
+                onStatusChange={handleStatusChange}
                 onEdit={() => handleTaskEdit(task)}
                 onDelete={() => handleTaskDelete(task.id)}
               />
@@ -326,8 +332,8 @@ export default function Tasks() {
               <TaskCard
                 key={task.id}
                 task={task}
-                onToggle={(completed) => handleTaskToggle(task.id, completed)}
-                onStatusChange={(status) => handleStatusChange(task.id, status)}
+                onToggle={handleTaskToggle}
+                onStatusChange={handleStatusChange}
                 onEdit={() => handleTaskEdit(task)}
                 onDelete={() => handleTaskDelete(task.id)}
               />
@@ -345,8 +351,8 @@ export default function Tasks() {
               <TaskCard
                 key={task.id}
                 task={task}
-                onToggle={(completed) => handleTaskToggle(task.id, completed)}
-                onStatusChange={(status) => handleStatusChange(task.id, status)}
+                onToggle={handleTaskToggle}
+                onStatusChange={handleStatusChange}
                 onEdit={() => handleTaskEdit(task)}
                 onDelete={() => handleTaskDelete(task.id)}
               />
@@ -363,7 +369,7 @@ export default function Tasks() {
         }}
         onSubmit={handleSubmit}
         categories={categories}
-        initialData={editingTask}
+        task={editingTask}
       />
     </div>
   );
