@@ -1,15 +1,32 @@
 // Stripe server-side configuration
 import Stripe from 'stripe';
 
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error('STRIPE_SECRET_KEY is not configured');
+let stripeInstance: Stripe | null = null;
+
+function getStripe(): Stripe {
+  if (!stripeInstance) {
+    if (!process.env.STRIPE_SECRET_KEY) {
+      console.error('STRIPE_SECRET_KEY environment variable is not set');
+      console.error('Available env vars:', Object.keys(process.env).filter(k => k.includes('STRIPE')));
+      throw new Error('STRIPE_SECRET_KEY is not configured');
+    }
+    console.log('Initializing Stripe with key:', process.env.STRIPE_SECRET_KEY?.substring(0, 10) + '...');
+    stripeInstance = new Stripe(process.env.STRIPE_SECRET_KEY, {
+      apiVersion: '2024-11-20.acacia' as any,
+    });
+  }
+  return stripeInstance;
 }
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: '2024-11-20.acacia' as any,
+// Export a proxy object that lazily initializes Stripe
+const stripeProxy = new Proxy({} as Stripe, {
+  get: (target, prop) => {
+    const stripe = getStripe();
+    return (stripe as any)[prop];
+  }
 });
 
-export default stripe;
+export default stripeProxy;
 
 // Payment-related storage functions
 import { db } from './db';

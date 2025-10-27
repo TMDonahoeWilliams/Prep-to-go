@@ -28,6 +28,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     console.log('Payment intent creation requested:', JSON.stringify(req.body));
+    console.log('Environment check - STRIPE_SECRET_KEY exists:', !!process.env.STRIPE_SECRET_KEY);
+    console.log('Environment check - Key length:', process.env.STRIPE_SECRET_KEY?.length || 0);
 
     // Validate request body exists
     if (!req.body) {
