@@ -90,6 +90,7 @@ export const tasks = pgTable("tasks", {
   completedAt: timestamp("completed_at"),
   notes: text("notes"),
   assignedTo: varchar("assigned_to", { length: 20 }).notNull().default('student'), // 'student' or 'parent' - who is responsible
+  helpfulLink: text("helpful_link"), // URL to complete the task (e.g., FAFSA website)
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

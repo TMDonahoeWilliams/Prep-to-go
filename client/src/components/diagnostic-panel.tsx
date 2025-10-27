@@ -28,6 +28,19 @@ export function DiagnosticPanel() {
         results.push(`User Email: ${userData.email || 'No email'}`);
         results.push(`User Role: ${userData.role || 'No role'}`);
       }
+      
+      // Check tasks with helpful links
+      const userTasks = localStorage.getItem('userTasks');
+      results.push(`Tasks in localStorage: ${userTasks ? '✅ Found' : '❌ Not found'}`);
+      if (userTasks) {
+        const tasks = JSON.parse(userTasks);
+        results.push(`Number of tasks: ${tasks.length}`);
+        const tasksWithLinks = tasks.filter((task: any) => task.helpfulLink || task.helpful_link);
+        results.push(`Tasks with helpful links: ${tasksWithLinks.length}`);
+        if (tasksWithLinks.length > 0) {
+          results.push(`Sample link: ${tasksWithLinks[0].helpfulLink || tasksWithLinks[0].helpful_link}`);
+        }
+      }
     } catch (error) {
       results.push(`❌ Error reading localStorage: ${error}`);
     }

@@ -106,7 +106,7 @@ export function TaskCard({ task, onToggle, onStatusChange, onEdit, onDelete }: T
             </p>
           )}
 
-          {(task as any).helpfulLink && (
+          {((task as any).helpfulLink || (task as any).helpful_link) && (
             <div className="mb-3">
               <Button
                 variant="outline"
@@ -115,7 +115,7 @@ export function TaskCard({ task, onToggle, onStatusChange, onEdit, onDelete }: T
                 className="h-8 text-xs"
               >
                 <a
-                  href={(task as any).helpfulLink}
+                  href={(task as any).helpfulLink || (task as any).helpful_link}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-1"
