@@ -42,6 +42,7 @@ interface TaskDialogProps {
 
 const formSchema = insertTaskSchema.extend({
   dueDate: z.string().optional(),
+  helpfulLink: z.string().url().optional().or(z.literal("")),
 });
 
 export function TaskDialog({
@@ -62,6 +63,7 @@ export function TaskDialog({
       assignedTo: task?.assignedTo || "student",
       dueDate: task?.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : "",
       notes: task?.notes || "",
+      helpfulLink: (task as any)?.helpfulLink || (task as any)?.helpful_link || "",
       userId: "",
     },
   });
@@ -227,6 +229,25 @@ export function TaskDialog({
                       placeholder="Additional notes or requirements..."
                       className="resize-none min-h-16"
                       data-testid="input-task-notes"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="helpfulLink"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Helpful Link</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="url"
+                      placeholder="https://example.com/complete-task"
+                      data-testid="input-task-helpful-link"
                       {...field}
                     />
                   </FormControl>

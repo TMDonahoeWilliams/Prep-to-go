@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TaskCard } from "@/components/task-card";
 import { TaskDialog } from "@/components/task-dialog";
+import { TaskManagementInfo } from "@/components/task-management-info";
 import { Plus, Search } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -134,6 +135,18 @@ export default function Tasks() {
   const inProgressTasks = filteredTasks.filter((t) => t.status === "in_progress");
   const completedTasks = filteredTasks.filter((t) => t.status === "completed");
 
+  // Count seeded vs custom tasks (assuming seeded tasks have specific patterns or were created initially)
+  const seededTasksCount = tasks.filter(task => 
+    task.title.includes('FAFSA') || 
+    task.title.includes('scholarship') || 
+    task.title.includes('college application') ||
+    task.title.includes('SAT') ||
+    task.title.includes('ACT') ||
+    task.description?.includes('college prep') ||
+    task.description?.includes('financial aid')
+  ).length;
+  const customTasksCount = tasks.length - seededTasksCount;
+
   if (tasksLoading) {
     return (
       <div className="space-y-6">
@@ -151,6 +164,17 @@ export default function Tasks() {
     <div className="space-y-6">
       {/* Task Seeding Prompt for Existing Users */}
       <TaskSeedingPrompt tasks={tasks} />
+      
+      {/* Task Management Info */}
+      <TaskManagementInfo
+        totalTasks={tasks.length}
+        seededTasks={seededTasksCount}
+        customTasks={customTasksCount}
+        onCreateTask={() => {
+          setEditingTask(undefined);
+          setTaskDialogOpen(true);
+        }}
+      />
       
       {/* Header */}
       <div className="flex items-center justify-between">

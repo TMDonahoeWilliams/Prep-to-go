@@ -2,7 +2,7 @@ import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, User, MoreVertical, ExternalLink, CheckCircle, Clock, Play } from "lucide-react";
+import { Calendar, User, MoreVertical, ExternalLink, CheckCircle, Clock, Play, Edit3, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import type { Task, Category } from "@shared/schema";
 import {
@@ -86,15 +86,18 @@ export function TaskCard({ task, onToggle, onStatusChange, onEdit, onDelete }: T
                 <DropdownMenuItem
                   onClick={() => onEdit(task)}
                   data-testid={`button-edit-task-${task.id}`}
+                  className="flex items-center gap-2"
                 >
-                  Edit
+                  <Edit3 className="h-4 w-4" />
+                  Edit Task
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => onDelete(task.id)}
-                  className="text-destructive"
+                  className="text-destructive flex items-center gap-2"
                   data-testid={`button-delete-task-${task.id}`}
                 >
-                  Delete
+                  <Trash2 className="h-4 w-4" />
+                  Delete Task
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -140,6 +143,19 @@ export function TaskCard({ task, onToggle, onStatusChange, onEdit, onDelete }: T
             >
               {task.priority}
             </Badge>
+
+            {/* Indicate if this is a seeded task */}
+            {(task.title.includes('FAFSA') || 
+              task.title.includes('scholarship') || 
+              task.title.includes('college application') ||
+              task.title.includes('SAT') ||
+              task.title.includes('ACT') ||
+              task.description?.includes('college prep') ||
+              task.description?.includes('financial aid')) && (
+              <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+                College Prep
+              </Badge>
+            )}
 
             {task.dueDate && (
               <div
