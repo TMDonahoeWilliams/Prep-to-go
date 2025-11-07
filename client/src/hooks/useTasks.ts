@@ -167,3 +167,45 @@ export function useDeleteTask() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/tasks"] }),
   });
 }
+
+// New: seed default tasks for a user (used by task seeding UI)
+// Calls POST /api/tasks/seed and syncs localStorage + invalidates queries
+export function useSeedTasks() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async (userId?: string) => {
+      // Prefer session-based user; allow override by passing userId
+      const body = (userId || user?.id) ? { userId: userId || user?.id } : {};
+      const resp = await fetch('/api/tasks/seed', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(body),
+      });
+
+      if (!resp.ok) {
+        const text = await resp.text().catch(() => '');
+        throw new Error(`Seed API failed: ${resp.status} ${text}`);
+      }
+
+      const data = await resp.json();
+      return data;
+    },
+    onSuccess: (data: any) => {
+      try {
+        if (data?.tasks) {
+          localStorage.setItem('userTasks', JSON.stringify(data.tasks));
+          localStorage.setItem('tasksSeeded', 'true');
+        }
+      } catch (e) {
+        /* ignore localStorage errors */
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+    },
+    onError: (err: any) => {
+      console.error('Seeding tasks failed:', err);
+    },
+  });
+}
