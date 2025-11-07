@@ -1,34 +1,49 @@
-// ...existing file header/imports...
+// api/payments/confirm-payment.ts
+import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // existing handler code ...
+  if (req.method !== "POST") return res.status(405).json({ message: "Method not allowed" });
 
   try {
-    // dynamic import of server/payment helpers so runtime resolves .js on Vercel
-    let paymentStorageModule: any = null;
+    // dynamic import so runtime resolves .js on Vercel
+    let paymentsModule: any;
     try {
-      // First try the runtime JS path (what Vercel/node will have)
-      paymentStorageModule = await import('../../server/payments.js');
-    } catch (errJs) {
-      // Fallback to TS path for local/dev where the bundler resolves .ts
-      try {
-        paymentStorageModule = await import('../../server/payments');
-      } catch (errTs) {
-        console.error('Failed to import server/payments module (tried .js and .ts):', errJs, errTs);
-        return res.status(500).json({ message: 'Server misconfiguration: payment module not available' });
-      }
+      paymentsModule = await import("../../server/payments.js");
+    } catch (err) {
+      paymentsModule = await import("../../server/payments");
     }
+    const { paymentStorage } = paymentsModule;
 
-    const { paymentStorage } = paymentStorageModule;
+    const { paymentIntentId, userEmail } = req.body || {};
+    if (!paymentIntentId) return res.status(400).json({ message: "paymentIntentId required" });
 
-    // Now you can safely use paymentStorage.getUserByEmail, upsertSubscription, recordPayment, etc.
-    // e.g.:
-    // const users = await paymentStorage.getUserByEmail(userEmail);
-    // ...
+    // Example: find user and mark payment/subscription
+    const users = await paymentStorage.getUserByEmail(userEmail);
+    const user = users && users[0];
 
-    // rest of your existing confirm-payment logic continues here
+    await paymentStorage.recordPayment({
+      userId: user?.id ?? null,
+      stripePaymentIntentId: paymentIntentId,
+      amount: req.body.amount ?? 0,
+      currency: req.body.currency ?? "usd",
+      status: "succeeded",
+      description: req.body.description ?? "Payment confirmation",
+    });
 
-  } catch (error: any) {
-    // existing error handling...
+    await paymentStorage.upsertSubscription({
+      userId: user?.id ?? null,
+      planType: "basic",
+      status: "active",
+      stripeSubscriptionId: null,
+      currentPeriodStart: new Date(),
+      currentPeriodEnd: null,
+      cancelAtPeriodEnd: false,
+    });
+
+    return res.status(200).json({ success: true });
+  } catch (err: any) {
+    console.error("confirm-payment error:", err);
+    // Always return JSON for API errors — do NOT redirect
+    return res.status(500).json({ error: err?.message || "Server error" });
   }
 }
