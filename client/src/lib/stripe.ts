@@ -33,7 +33,6 @@ export const PRICING_PLANS = {
       'College application tracking',
       'Financial aid organization'
     ],
-    // Put your product & price IDs in Vite env variables
     productId: (import.meta.env.VITE_STRIPE_PRODUCT_ID as string) || '',
     stripePriceId: (import.meta.env.VITE_STRIPE_PRICE_ID as string) || ''
   }
