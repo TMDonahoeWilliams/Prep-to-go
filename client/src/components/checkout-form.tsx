@@ -25,6 +25,17 @@ interface CheckoutFormProps {
   onCancel: () => void;
 }
 
+// Helper: safely parse response -> prefer JSON, fall back to text
+async function parseResponseSafely(resp: Response) {
+  const text = await resp.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    // Not JSON — return raw text so callers can include it in error messages
+    return text;
+  }
+}
+
 // Internal checkout form component that uses Stripe Elements
 function CheckoutFormInner({ 
   priceId, 
@@ -50,6 +61,7 @@ function CheckoutFormInner({
     if (formData.email) {
       createPaymentIntent();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const createPaymentIntent = async () => {
@@ -68,15 +80,25 @@ function CheckoutFormInner({
         credentials: 'include',
       });
 
-      const data = await response.json();
+      const data = await parseResponseSafely(response);
 
       if (!response.ok) {
-        throw new Error(data.message || 'Failed to create payment intent');
+        // If server returned non-JSON, data will be a string — include it in the thrown error
+        const msg = typeof data === 'string' ? data : (data?.message || JSON.stringify(data));
+        throw new Error(msg || `Failed to create payment intent (status ${response.status})`);
+      }
+
+      // Expect clientSecret in JSON
+      if (!data || typeof data.clientSecret !== 'string') {
+        throw new Error(`Unexpected response from create-payment-intent: ${typeof data === 'string' ? data : JSON.stringify(data)}`);
       }
 
       setClientSecret(data.clientSecret);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to initialize payment');
+    } catch (err: any) {
+      // Show friendly message and keep the raw server message available in console
+      const msg = err?.message || String(err);
+      console.error('createPaymentIntent error:', err);
+      setError(msg);
     }
   };
 
@@ -133,21 +155,26 @@ function CheckoutFormInner({
           credentials: 'include',
         });
 
-        const confirmData = await confirmResponse.json();
+        const confirmData = await parseResponseSafely(confirmResponse);
 
         if (!confirmResponse.ok) {
-          throw new Error(confirmData.message || 'Payment confirmation failed');
+          const msg = typeof confirmData === 'string' ? confirmData : (confirmData?.message || JSON.stringify(confirmData));
+          throw new Error(msg || `Payment confirmation failed (status ${confirmResponse.status})`);
         }
 
         // Store payment success in localStorage
-        localStorage.setItem('paymentStatus', JSON.stringify({
-          hasPaidAccess: true,
-          subscriptionStatus: 'active',
-          planType: 'basic',
-          confirmedAt: new Date().toISOString(),
-          paymentIntentId: paymentIntent.id,
-          amount: paymentIntent.amount,
-        }));
+        try {
+          localStorage.setItem('paymentStatus', JSON.stringify({
+            hasPaidAccess: true,
+            subscriptionStatus: 'active',
+            planType: 'basic',
+            confirmedAt: new Date().toISOString(),
+            paymentIntentId: paymentIntent.id,
+            amount: paymentIntent.amount,
+          }));
+        } catch (e) {
+          console.warn('Could not write paymentStatus to localStorage:', e);
+        }
 
         console.log('Payment completed successfully');
         
@@ -168,9 +195,11 @@ function CheckoutFormInner({
         throw new Error('Payment was not completed successfully');
       }
 
-    } catch (err) {
+    } catch (err: any) {
       setIsLoading(false);
-      setError(err instanceof Error ? err.message : 'Payment failed');
+      const message = err?.message || String(err);
+      console.error('Payment flow error:', err);
+      setError(message);
     }
   };
 
@@ -279,8 +308,7 @@ function CheckoutFormInner({
   );
 }
 
-// Main export component that wraps with Stripe Elements
-export function CheckoutForm(props: CheckoutFormProps) {
+export default function CheckoutForm(props: CheckoutFormProps) {
   return (
     <Elements stripe={stripePromise}>
       <CheckoutFormInner {...props} />
