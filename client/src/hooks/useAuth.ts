@@ -18,7 +18,7 @@ export function useAuth() {
       try {
         const { data } = await supabase.auth.getSession();
         if (!mounted) return;
-        setUser(data?.session?.user ?? null);
+        setUser((data as any)?.session?.user ?? null);
       } catch (err) {
         console.error("useAuth: failed to get session", err);
         if (!mounted) return;
@@ -30,16 +30,54 @@ export function useAuth() {
 
     init();
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+    // Register auth state change listener. supabase.auth.onAuthStateChange can return
+    // different shapes across versions, so keep a reference to the returned value and
+    // unsubscribe defensively on cleanup.
+    const listener = supabase.auth.onAuthStateChange((_event, session) => {
+      try {
+        setUser(session?.user ?? null);
+      } catch (e) {
+        console.error("useAuth: onAuthStateChange handler error", e);
+      }
     });
 
     return () => {
       mounted = false;
       try {
-        sub?.subscription?.unsubscribe?.();
-      } catch {
-        // ignore unsubscribe errors in some runtime environments
+        // listener may have several shapes depending on supabase-js version:
+        // - { data: { subscription } } (v2)
+        // - { subscription } (other wrappers)
+        // - an object with unsubscribe() method
+        // - or the listener itself might be the subscription with unsubscribe()
+        const anyListener: any = listener;
+        if (!anyListener) return;
+
+        // v2: { data: { subscription } }
+        if (anyListener.data && anyListener.data.subscription && typeof anyListener.data.subscription.unsubscribe === "function") {
+          anyListener.data.subscription.unsubscribe();
+          return;
+        }
+
+        // shape: { subscription: { unsubscribe() } }
+        if (anyListener.subscription && typeof anyListener.subscription.unsubscribe === "function") {
+          anyListener.subscription.unsubscribe();
+          return;
+        }
+
+        // direct unsubscribe function on returned object
+        if (typeof anyListener.unsubscribe === "function") {
+          anyListener.unsubscribe();
+          return;
+        }
+
+        // in rare cases listener itself is a function to call to unsubscribe
+        if (typeof anyListener === "function") {
+          try { anyListener(); } catch {}
+          return;
+        }
+      } catch (err) {
+        // swallow errors on cleanup but log them
+        console.warn("useAuth: failed to unsubscribe auth listener", err);
       }
     };
   }, []);
@@ -50,7 +88,6 @@ export function useAuth() {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
-        // supabase returns helpful error.message
         throw error;
       }
 
@@ -69,14 +106,13 @@ export function useAuth() {
           throw new Error(`Server session exchange failed: ${resp.status} ${text}`);
         }
       } else {
-        // If no access token (e.g. magic-link flow), we may still proceed; server exchange may not be needed
         console.warn("useAuth.signIn: no access token returned from Supabase signIn");
       }
 
       // Refresh supabase session and user
       const { data: sessionData } = await supabase.auth.getSession();
-      setUser(sessionData?.session?.user ?? null);
-      return { user: sessionData?.session?.user ?? null };
+      setUser((sessionData as any)?.session?.user ?? null);
+      return { user: (sessionData as any)?.session?.user ?? null };
     } catch (err) {
       console.error("useAuth.signIn error:", err);
       throw err;
@@ -90,8 +126,7 @@ export function useAuth() {
     setLoading(true);
     try {
       const result = await supabase.auth.signUp({ email, password });
-      if (result.error) throw result.error;
-      // For many setups you may want to auto sign-in or require email confirmation.
+      if ((result as any).error) throw (result as any).error;
       return result;
     } catch (err) {
       console.error("useAuth.signUp error:", err);
@@ -111,6 +146,7 @@ export function useAuth() {
         await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
       } catch (e) {
         // ignore failures; fall back to client-only sign-out
+        console.warn("useAuth.signOut: server logout failed", e);
       }
       setUser(null);
     } catch (err) {
