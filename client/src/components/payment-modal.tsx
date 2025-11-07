@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Check, CreditCard, Shield, Clock } from "lucide-react";
-import CheckoutForm from "./checkout-form"; // <- changed to default import, removed .tsx extension
+import CheckoutForm from "./checkout-form";
+import { PRICING_PLANS } from "@/lib/stripe"; // <- add this import
 import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 
