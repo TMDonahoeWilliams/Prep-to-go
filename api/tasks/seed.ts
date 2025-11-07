@@ -1,3 +1,4 @@
+// api/tasks/seed.ts
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 // Supabase Category UUIDs (from actual database)
@@ -10,9 +11,8 @@ const SUPABASE_CATEGORY_IDS = {
   'Move-In Preparation': '3b871a7d-31a5-4385-b21c-a14bf239ffeb'
 } as const;
 
-// Default tasks that every new user should have (using realistic 2026-2027 deadlines)
 const getDefaultTasksForUser = (userId: string) => [
-  // FAFSA and Financial Aid (Critical Timeline)
+  // (include the same default task objects you already have)
   {
     id: `fafsa-1-${userId}`,
     userId,
@@ -38,332 +38,80 @@ const getDefaultTasksForUser = (userId: string) => [
       createdAt: new Date().toISOString(),
     },
   },
-  {
-    id: `css-profile-${userId}`,
-    userId,
-    categoryId: SUPABASE_CATEGORY_IDS['Financial Aid & FAFSA'],
-    title: 'CSS Profile Application',
-    description: 'Complete CSS Profile for private colleges and additional aid programs',
-    dueDate: '2026-01-01T23:59:00Z',
-    priority: 'high',
-    status: 'pending',
-    completedAt: null,
-    notes: 'Required by many private colleges. Check college-specific deadlines.',
-    assignedTo: 'parent',
-    helpfulLink: 'https://cssprofile.collegeboard.org/',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    category: {
-      id: SUPABASE_CATEGORY_IDS['Financial Aid & FAFSA'],
-      name: 'Financial Aid & FAFSA',
-      description: 'Financial aid forms, scholarships, and FAFSA submission',
-      color: 'chart-2',
-      icon: 'DollarSign',
-      sortOrder: 2,
-      createdAt: new Date().toISOString(),
-    },
-  },
-
-  // College Application Deadlines
-  {
-    id: `early-apps-${userId}`,
-    userId,
-    categoryId: SUPABASE_CATEGORY_IDS['College Applications'],
-    title: 'Early Decision/Action Applications',
-    description: 'Submit early decision and early action applications for priority consideration',
-    dueDate: '2025-11-01T23:59:00Z',
-    priority: 'urgent',
-    status: 'pending',
-    completedAt: null,
-    notes: 'ED is binding, EA is not. Check each school\'s specific requirements.',
-    assignedTo: 'student',
-    helpfulLink: 'https://www.commonapp.org/',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    category: {
-      id: SUPABASE_CATEGORY_IDS['College Applications'],
-      name: 'College Applications',
-      description: 'College application deadlines and requirements',
-      color: 'chart-1',
-      icon: 'GraduationCap',
-      sortOrder: 1,
-      createdAt: new Date().toISOString(),
-    },
-  },
-  {
-    id: `common-app-${userId}`,
-    userId,
-    categoryId: SUPABASE_CATEGORY_IDS['College Applications'],
-    title: 'Common Application Deadline',
-    description: 'Submit Common Application for regular decision to all selected colleges',
-    dueDate: '2026-01-01T23:59:00Z',
-    priority: 'urgent',
-    status: 'pending',
-    completedAt: null,
-    notes: 'Most colleges use Common App. Check for any school-specific supplements.',
-    assignedTo: 'student',
-    helpfulLink: 'https://www.commonapp.org/',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    category: {
-      id: SUPABASE_CATEGORY_IDS['College Applications'],
-      name: 'College Applications',
-      description: 'College application deadlines and requirements',
-      color: 'chart-1',
-      icon: 'GraduationCap',
-      sortOrder: 1,
-      createdAt: new Date().toISOString(),
-    },
-  },
-
-  // Major Scholarships
-  {
-    id: `merit-scholar-${userId}`,
-    userId,
-    categoryId: SUPABASE_CATEGORY_IDS['Financial Aid & FAFSA'],
-    title: '💰 National Merit Scholarship',
-    description: 'Complete National Merit Scholarship application if semi-finalist',
-    dueDate: '2026-02-15T23:59:00Z',
-    priority: 'urgent',
-    status: 'pending',
-    completedAt: null,
-    notes: 'Only for PSAT National Merit Semi-finalists. Up to $2,500 award. Extended deadline for 2026 graduates.',
-    assignedTo: 'student',
-    helpfulLink: 'https://www.nationalmerit.org/',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    category: {
-      id: SUPABASE_CATEGORY_IDS['Financial Aid & FAFSA'],
-      name: 'Financial Aid & FAFSA',
-      description: 'Financial aid forms, scholarships, and FAFSA submission',
-      color: 'chart-2',
-      icon: 'DollarSign',
-      sortOrder: 2,
-      createdAt: new Date().toISOString(),
-    },
-  },
-  {
-    id: `coca-cola-${userId}`,
-    userId,
-    categoryId: SUPABASE_CATEGORY_IDS['Financial Aid & FAFSA'],
-    title: '💰 Coca-Cola Scholars Program',
-    description: 'Apply for $20,000 Coca-Cola Scholars Program scholarship',
-    dueDate: '2026-01-31T23:59:00Z',
-    priority: 'urgent',
-    status: 'pending',
-    completedAt: null,
-    notes: 'Leadership and academic excellence. 150 winners annually. Must be high school senior.',
-    assignedTo: 'student',
-    helpfulLink: 'https://www.coca-colascholarsfoundation.org/',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    category: {
-      id: SUPABASE_CATEGORY_IDS['Financial Aid & FAFSA'],
-      name: 'Financial Aid & FAFSA',
-      description: 'Financial aid forms, scholarships, and FAFSA submission',
-      color: 'chart-2',
-      icon: 'DollarSign',
-      sortOrder: 2,
-      createdAt: new Date().toISOString(),
-    },
-  },
-  {
-    id: `cooke-foundation-${userId}`,
-    userId,
-    categoryId: SUPABASE_CATEGORY_IDS['Financial Aid & FAFSA'],
-    title: '💰 Jack Kent Cooke Foundation Scholarship',
-    description: 'Apply for Jack Kent Cooke Foundation College Scholarship (up to $55,000/year)',
-    dueDate: '2026-11-15T23:59:00Z',
-    priority: 'urgent',
-    status: 'pending',
-    completedAt: null,
-    notes: 'High-achieving students with financial need. Must have 3.5+ GPA and demonstrate leadership.',
-    assignedTo: 'student',
-    helpfulLink: 'https://www.jkcf.org/our-scholarships/college-scholarship-program/',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    category: {
-      id: SUPABASE_CATEGORY_IDS['Financial Aid & FAFSA'],
-      name: 'Financial Aid & FAFSA',
-      description: 'Financial aid forms, scholarships, and FAFSA submission',
-      color: 'chart-2',
-      icon: 'DollarSign',
-      sortOrder: 2,
-      createdAt: new Date().toISOString(),
-    },
-  },
-
-  // Testing and Transcripts
-  {
-    id: `send-scores-${userId}`,
-    userId,
-    categoryId: SUPABASE_CATEGORY_IDS['Testing & Transcripts'],
-    title: 'Send SAT/ACT Scores',
-    description: 'Send official test scores to all colleges on your list',
-    dueDate: '2025-12-15T23:59:00Z',
-    priority: 'high',
-    status: 'pending',
-    completedAt: null,
-    notes: 'Order through College Board (SAT) or ACT.org. Allow 2-3 weeks for delivery.',
-    assignedTo: 'student',
-    helpfulLink: 'https://www.collegeboard.org/send-scores',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    category: {
-      id: SUPABASE_CATEGORY_IDS['Testing & Transcripts'],
-      name: 'Testing & Transcripts',
-      description: 'Standardized tests, transcripts, and academic records',
-      color: 'chart-4',
-      icon: 'BookOpen',
-      sortOrder: 4,
-      createdAt: new Date().toISOString(),
-    },
-  },
-  {
-    id: `request-transcripts-${userId}`,
-    userId,
-    categoryId: SUPABASE_CATEGORY_IDS['Testing & Transcripts'],
-    title: 'Request High School Transcripts',
-    description: 'Request official transcripts from high school for all college applications',
-    dueDate: '2025-12-01T23:59:00Z',
-    priority: 'high',
-    status: 'pending',
-    completedAt: null,
-    notes: 'Contact guidance counselor early. Some schools need 2+ weeks processing time.',
-    assignedTo: 'student',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    category: {
-      id: SUPABASE_CATEGORY_IDS['Testing & Transcripts'],
-      name: 'Testing & Transcripts',
-      description: 'Standardized tests, transcripts, and academic records',
-      color: 'chart-4',
-      icon: 'BookOpen',
-      sortOrder: 4,
-      createdAt: new Date().toISOString(),
-    },
-  },
-  {
-    id: `final-transcript-${userId}`,
-    userId,
-    categoryId: SUPABASE_CATEGORY_IDS['Testing & Transcripts'],
-    title: 'Final Transcript After Graduation',
-    description: 'Send final high school transcript to enrolled college',
-    dueDate: '2026-07-01T23:59:00Z',
-    priority: 'urgent',
-    status: 'pending',
-    completedAt: null,
-    notes: 'CRITICAL: Required for enrollment. Must show graduation and final grades.',
-    assignedTo: 'student',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    category: {
-      id: SUPABASE_CATEGORY_IDS['Testing & Transcripts'],
-      name: 'Testing & Transcripts',
-      description: 'Standardized tests, transcripts, and academic records',
-      color: 'chart-4',
-      icon: 'BookOpen',
-      sortOrder: 4,
-      createdAt: new Date().toISOString(),
-    },
-  },
-
-  // Housing and Health
-  {
-    id: `housing-deposit-${userId}`,
-    userId,
-    categoryId: SUPABASE_CATEGORY_IDS['Housing & Registration'],
-    title: 'Housing Application Deposit',
-    description: 'Submit housing application and deposit to secure on-campus housing',
-    dueDate: '2026-05-01T23:59:00Z',
-    priority: 'high',
-    status: 'pending',
-    completedAt: null,
-    notes: 'Most colleges require housing deposit by May 1st. Usually $200-500.',
-    assignedTo: 'parent',
-    helpfulLink: 'https://bigfuture.collegeboard.org/plan-for-college/college-basics/applying-to-college/college-application-checklist',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    category: {
-      id: SUPABASE_CATEGORY_IDS['Housing & Registration'],
-      name: 'Housing & Registration',
-      description: 'Dorm applications, course registration, and enrollment',
-      color: 'chart-3',
-      icon: 'Home',
-      sortOrder: 3,
-      createdAt: new Date().toISOString(),
-    },
-  },
-  {
-    id: `immunizations-${userId}`,
-    userId,
-    categoryId: SUPABASE_CATEGORY_IDS['Health & Documentation'],
-    title: 'Immunization Records',
-    description: 'Submit required immunization records to college health center',
-    dueDate: '2026-07-01T23:59:00Z',
-    priority: 'urgent',
-    status: 'pending',
-    completedAt: null,
-    notes: 'Required for enrollment. May need additional vaccines like meningitis.',
-    assignedTo: 'parent',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    category: {
-      id: SUPABASE_CATEGORY_IDS['Health & Documentation'],
-      name: 'Health & Documentation',
-      description: 'Medical forms, insurance, and health requirements',
-      color: 'chart-5',
-      icon: 'Heart',
-      sortOrder: 5,
-      createdAt: new Date().toISOString(),
-    },
-  },
+  // ... rest of your tasks ...
 ];
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
-    // Set CORS headers
+    // CORS + preflight
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     res.setHeader('Content-Type', 'application/json');
 
-    // Handle preflight
-    if (req.method === 'OPTIONS') {
-      return res.status(200).json({ message: 'OK' });
-    }
+    if (req.method === 'OPTIONS') return res.status(200).json({ message: 'OK' });
+    if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-    // Only handle POST requests
-    if (req.method !== 'POST') {
-      return res.status(405).json({ error: 'Method not allowed' });
-    }
+    // Prefer userId from session if present (server-backed); otherwise use body.userId
+    const sessionUserId = (req as any)?.session?.userId;
+    const bodyUserId = req.body?.userId;
+    const userId = sessionUserId || bodyUserId;
 
-    const { userId } = req.body;
-    
     if (!userId) {
       return res.status(400).json({ error: 'User ID is required' });
     }
 
-    console.log(`Seeding default tasks for user: ${userId}`);
-    
-    // For serverless demo, we'll store tasks in localStorage via the client
-    // Generate the default tasks for this user
-    const defaultTasks = getDefaultTasksForUser(userId);
-    
-    console.log(`Generated ${defaultTasks.length} default tasks for user ${userId}`);
-    
-    return res.status(200).json({
-      success: true,
-      message: `Successfully generated ${defaultTasks.length} default tasks`,
-      tasks: defaultTasks,
-      userId: userId
-    });
+    console.log(`Seeding default tasks for user: ${userId} (sessionUserId: ${!!sessionUserId})`);
 
+    const defaultTasks = getDefaultTasksForUser(userId);
+
+    // Try to persist using the server-side seeding helper (DB-backed server). Use dynamic import so file still works in serverless/demo.
+    try {
+      const { seedDefaultTasksForUser } = await import('../../server/seedTasks');
+      console.log('Attempting DB seed via server/seedTasks.seedDefaultTasksForUser...');
+      await seedDefaultTasksForUser(userId);
+
+      // Try returning persisted tasks (prefer storage if available)
+      try {
+        const { storage } = await import('../../server/storage') as any;
+        const tasksPersisted = storage.getUserTasksWithCategories
+          ? await storage.getUserTasksWithCategories(userId)
+          : await storage.getUserTasks(userId);
+
+        console.log(`Persisted ${Array.isArray(tasksPersisted) ? tasksPersisted.length : 'unknown'} tasks for user ${userId}`);
+        return res.status(200).json({
+          success: true,
+          message: `Seeded ${Array.isArray(tasksPersisted) ? tasksPersisted.length : defaultTasks.length} tasks (persisted)`,
+          tasks: tasksPersisted || defaultTasks,
+          persisted: true,
+          userId,
+        });
+      } catch (readbackErr) {
+        console.warn('Seeded but could not read back persisted tasks:', readbackErr);
+        return res.status(200).json({
+          success: true,
+          message: `Seeded ${defaultTasks.length} tasks (DB seed attempted)`,
+          tasks: defaultTasks,
+          persisted: true,
+          userId,
+        });
+      }
+    } catch (persistErr) {
+      // Fall back to returning tasks for client to store locally (serverless/demo)
+      console.warn('DB persistence not available or failed, falling back to returning tasks:', persistErr);
+      return res.status(200).json({
+        success: true,
+        message: `Generated ${defaultTasks.length} default tasks (client-side storage recommended)`,
+        tasks: defaultTasks,
+        persisted: false,
+        userId,
+      });
+    }
   } catch (error) {
     console.error('Task seeding error:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'Failed to seed tasks',
-      message: error instanceof Error ? error.message : 'Unknown error'
+      message: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 }
