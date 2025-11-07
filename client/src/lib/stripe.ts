@@ -1,19 +1,21 @@
-// Stripe configuration
-import { loadStripe, Stripe } from '@stripe/stripe-js';
+// client/src/lib/stripe.ts
+import { loadStripe } from '@stripe/stripe-js';
+import type { Stripe } from '@stripe/stripe-js';
 
-// This is your Stripe publishable key - only use environment variable
-const stripePublishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
+// Publishable key (Vite)
+const stripePublishableKey = (import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY as string) || '';
 
-let stripePromise: Promise<Stripe | null>;
-
-export const getStripe = () => {
+// Lazy Stripe loader
+let stripePromise: Promise<Stripe | null> | undefined;
+export function getStripe() {
   if (!stripePromise) {
     stripePromise = loadStripe(stripePublishableKey);
   }
   return stripePromise;
-};
+}
+export default getStripe;
 
-// Pricing configuration
+// Pricing configuration (exported as a named export)
 export const PRICING_PLANS = {
   BASIC: {
     name: 'Prep-to-go Planner',
@@ -31,9 +33,8 @@ export const PRICING_PLANS = {
       'College application tracking',
       'Financial aid organization'
     ],
-    productId: import.meta.env.VITE_STRIPE_PRODUCT_ID,
-    stripePriceId: import.meta.env.VITE_STRIPE_PRICE_ID
+    // Put your product & price IDs in Vite env variables
+    productId: (import.meta.env.VITE_STRIPE_PRODUCT_ID as string) || '',
+    stripePriceId: (import.meta.env.VITE_STRIPE_PRICE_ID as string) || ''
   }
-};
-
-export default getStripe;
+} as const;
