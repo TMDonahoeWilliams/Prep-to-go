@@ -1,36 +1,32 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+// (Replace the existing payments/check-access demo block with this)
+  // Handle payment status check
+  if ((url.includes('/payments/check-access') || url === '/payments/check-access') && method === 'GET') {
+    const demoPaywall = (process.env.DEMO_PAYWALL === 'true');
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const { url = '', method } = req;
-  
-  // Only handle API requests when running on Vercel, not in local development
-  const isVercel = process.env.VERCEL === '1' || process.env.VERCEL_ENV;
-  const isProduction = process.env.NODE_ENV === 'production';
-  
-  // Log for debugging
-  console.log('API Request:', { url, method, fullUrl: req.url, isVercel, isProduction });
-  
-  // In local development, let the main server handle everything
-  if (!isVercel && !isProduction) {
-    return res.status(404).json({ 
-      message: "Local development - routes handled by main server",
-      redirectToMainServer: true 
-    });
+    if (demoPaywall) {
+      // Explicit demo mode: return demo response
+      return res.json({
+        hasPaidAccess: false,
+        subscriptionStatus: 'inactive',
+        planType: null,
+        expiresAt: null,
+        trialEndsAt: null,
+        message: 'Demo mode - complete payment flow to access app'
+      });
+    }
+
+    // Not demo mode: delegate to the real payments/check-access handler
+    try {
+      // dynamic import so Vercel runtime resolves the correct file
+      const { default: checkAccessHandler } = await import('./payments/check-access');
+      return checkAccessHandler(req, res);
+    } catch (err) {
+      console.error('Failed to route to /api/payments/check-access handler:', err);
+      return res.status(500).json({
+        message: 'Server misconfiguration: payments handler not available'
+      });
+    }
   }
-  
-  // Handle debug endpoint - check multiple possible URL formats
-  if ((url.includes('/debug') || url === '/debug') && method === 'GET') {
-    return res.json({
-      NODE_ENV: process.env.NODE_ENV,
-      DEV_AUTH: process.env.DEV_AUTH,
-      VERCEL: process.env.VERCEL,
-      VERCEL_ENV: process.env.VERCEL_ENV,
-      useDevAuth: process.env.NODE_ENV === 'development' || process.env.DEV_AUTH === 'true',
-      requestUrl: url,
-      timestamp: new Date().toISOString()
-    });
-  }
-  
   // Handle login fallback
   if ((url.includes('/login-fallback') || url === '/login-fallback') && method === 'GET') {
     res.setHeader('Location', '/');
