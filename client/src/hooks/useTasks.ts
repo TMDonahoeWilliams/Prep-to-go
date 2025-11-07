@@ -44,6 +44,33 @@ export function useTasks() {
   });
 }
 
+// New: task stats hook required by dashboard and other pages
+export function useTaskStats() {
+  return useQuery({
+    queryKey: ["/api/tasks/stats"],
+    queryFn: async () => {
+      try {
+        const res = await fetch("/api/tasks/stats", { credentials: "include" });
+        if (!res.ok) {
+          throw new Error(`Server returned ${res.status}`);
+        }
+        return await res.json();
+      } catch (err) {
+        console.warn("Failed to fetch /api/tasks/stats, returning fallback zeros:", err);
+        // Provide a sensible fallback so UI code can safely read stats while offline/demoing
+        return {
+          totalTasks: 0,
+          completedTasks: 0,
+          overdueTasks: 0,
+          upcomingTasks: 0,
+        };
+      }
+    },
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
+}
+
 export function useCreateTask() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
