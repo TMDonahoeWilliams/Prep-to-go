@@ -1,10 +1,11 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { paymentStorage } from '../../server/payments';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     // Set CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     res.setHeader('Content-Type', 'application/json');
 
@@ -13,23 +14,71 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({ message: 'OK' });
     }
 
-    // Only handle GET requests
-    if (req.method !== 'GET') {
+    // Handle both GET and POST requests
+    if (req.method !== 'GET' && req.method !== 'POST') {
       return res.status(405).json({ message: 'Method not allowed' });
     }
 
-    console.log('Payment access check requested');
+    // Get user email from query params or body
+    const userEmail = req.method === 'GET' 
+      ? (req.query.email as string)
+      : req.body?.email;
 
-    // For demo purposes, API always returns "no access" - payment status is managed via localStorage
-    // The usePaymentStatus hook checks localStorage first, then falls back to this API
-    // This ensures the payment flow works correctly in demo mode
+    if (!userEmail) {
+      console.log('Payment access check requested without email - returning no access');
+      return res.status(200).json({
+        hasPaidAccess: false,
+        subscriptionStatus: 'inactive',
+        planType: null,
+        expiresAt: null,
+        trialEndsAt: null,
+        message: 'Email required to check payment status'
+      });
+    }
+
+    console.log('Payment access check requested for:', userEmail);
+
+    // Look up user by email
+    const userResult = await paymentStorage.getUserByEmail(userEmail);
+    
+    if (!userResult || userResult.length === 0) {
+      console.log('User not found:', userEmail);
+      return res.status(200).json({
+        hasPaidAccess: false,
+        subscriptionStatus: 'inactive',
+        planType: null,
+        expiresAt: null,
+        trialEndsAt: null,
+        message: 'User not found'
+      });
+    }
+
+    const user = userResult[0];
+    
+    // Check for active subscription
+    const subscriptionResult = await paymentStorage.getUserSubscription(user.id);
+    
+    if (!subscriptionResult || subscriptionResult.length === 0) {
+      console.log('No active subscription found for user:', userEmail);
+      return res.status(200).json({
+        hasPaidAccess: false,
+        subscriptionStatus: 'inactive',
+        planType: null,
+        expiresAt: null,
+        trialEndsAt: null,
+        message: 'No active subscription'
+      });
+    }
+
+    const subscription = subscriptionResult[0];
+    
     const paymentStatus = {
-      hasPaidAccess: false, // Always false from API - localStorage overrides after payment
-      subscriptionStatus: 'inactive',
-      planType: null,
-      expiresAt: null,
+      hasPaidAccess: true,
+      subscriptionStatus: subscription.status,
+      planType: 'basic',
+      expiresAt: subscription.currentPeriodEnd,
       trialEndsAt: null,
-      message: 'Demo mode - complete payment flow to access app'
+      message: 'Active subscription found'
     };
 
     console.log('Returning payment status:', paymentStatus);

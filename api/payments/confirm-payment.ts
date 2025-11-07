@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { z } from 'zod';
 import Stripe from 'stripe';
+import { paymentStorage } from '../../server/payments';
 
 const confirmPaymentSchema = z.object({
   paymentIntentId: z.string().min(1, "Payment intent ID is required"),
@@ -85,7 +86,88 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       console.warn(`Email mismatch: expected ${userEmail}, got ${paymentIntent.metadata?.userEmail}`);
     }
 
-    // Payment confirmed successfully
+    console.log(`Looking up user by email: ${userEmail}`);
+    
+    // Look up user by email to get userId
+    const userResult = await paymentStorage.getUserByEmail(userEmail);
+    
+    if (!userResult || userResult.length === 0) {
+      console.error(`User not found for email: ${userEmail}`);
+      return res.status(400).json({
+        success: false,
+        message: 'User not found. Please register first.'
+      });
+    }
+    
+    const user = userResult[0];
+    console.log(`User found: ${user.id} (${user.email})`);
+
+    // Check if user already has an active subscription
+    const existingSubscription = await paymentStorage.getUserSubscription(user.id);
+    
+    let dbSubscription;
+    
+    if (existingSubscription && existingSubscription.length > 0) {
+      // User already has an active subscription
+      dbSubscription = existingSubscription[0];
+      console.log(`User already has active subscription: ${dbSubscription.id}`);
+    } else {
+      // Create new subscription record for this user
+      const currentPeriodStart = new Date();
+      console.log(`Creating subscription for user ${user.id}`);
+      
+      const subscriptionData = {
+        userId: user.id,
+        stripeCustomerId: paymentIntent.customer as string | null || null,
+        stripeSubscriptionId: null, // One-time payment, no subscription ID
+        stripePriceId: null,
+        status: 'active',
+        currentPeriodStart: currentPeriodStart,
+        currentPeriodEnd: null, // null for lifetime access
+        cancelAtPeriodEnd: false,
+      };
+      
+      const dbSubscriptionResult = await paymentStorage.upsertSubscription(subscriptionData);
+      
+      if (!dbSubscriptionResult || dbSubscriptionResult.length === 0) {
+        console.error('Failed to create subscription record');
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to create subscription record'
+        });
+      }
+      
+      dbSubscription = dbSubscriptionResult[0];
+      console.log(`Subscription created: ${dbSubscription.id}`);
+    }
+
+    // Record payment in database
+    console.log(`Recording payment for subscription ${dbSubscription.id}`);
+    
+    const paymentData = {
+      userId: user.id,
+      subscriptionId: dbSubscription.id,
+      stripePaymentIntentId: paymentIntent.id,
+      amount: paymentIntent.amount,
+      currency: paymentIntent.currency,
+      status: 'succeeded',
+      description: paymentIntent.description || 'One-time payment',
+    };
+    
+    const dbPaymentResult = await paymentStorage.recordPayment(paymentData);
+    
+    if (!dbPaymentResult || dbPaymentResult.length === 0) {
+      console.error('Failed to record payment');
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to record payment'
+      });
+    }
+    
+    const dbPayment = dbPaymentResult[0];
+    console.log(`Payment recorded: ${dbPayment.id}`);
+
+    // Payment confirmed successfully - include both Stripe and DB data
     const confirmation = {
       success: true,
       paymentIntentId: paymentIntent.id,
@@ -104,10 +186,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         created: paymentIntent.created,
         description: paymentIntent.description,
         receiptEmail: paymentIntent.receipt_email,
+      },
+      dbSubscription: {
+        id: dbSubscription.id,
+        status: dbSubscription.status,
+        currentPeriodStart: dbSubscription.currentPeriodStart,
+        currentPeriodEnd: dbSubscription.currentPeriodEnd,
+      },
+      dbPayment: {
+        id: dbPayment.id,
+        amount: dbPayment.amount,
+        currency: dbPayment.currency,
+        status: dbPayment.status,
       }
     };
 
-    console.log('Payment confirmed successfully for:', userEmail, 'Amount:', paymentIntent.amount);
+    console.log('Payment confirmed and persisted successfully for:', userEmail, 'Amount:', paymentIntent.amount);
 
     return res.status(200).json(confirmation);
 
