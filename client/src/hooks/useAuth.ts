@@ -1,98 +1,81 @@
-import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
 
 export function useAuth() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [storedUser, setStoredUser] = useState(null);
-  const [refreshKey, setRefreshKey] = useState(0);
+  const [user, setUser] = useState<any | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // One-time cleanup of demo data on app startup
   useEffect(() => {
-    const cleanupDemoData = () => {
-      const currentVersion = '4.0.0'; // FINAL FIX - Role API was overwriting user data
-      const storedVersion = localStorage.getItem('appVersion');
-      
-      // Force clear if version doesn't match (new deployment)
-      if (storedVersion !== currentVersion) {
-        console.log('useAuth: New app version detected, clearing all demo data');
-        localStorage.removeItem('user');
-        localStorage.removeItem('isAuthenticated');
-        localStorage.removeItem('paymentStatus');
-        localStorage.setItem('appVersion', currentVersion);
-        return;
-      }
-      
-      const userData = localStorage.getItem('user');
-      if (userData) {
-        try {
-          const parsedUser = JSON.parse(userData);
-          // Check for any demo data patterns and clear them
-          if (parsedUser.firstName === 'Demo' || 
-              parsedUser.lastName === 'User' ||
-              parsedUser.email === 'demo@collegeprep.app' ||
-              parsedUser.id?.includes('demo-user')) {
-            console.log('useAuth: Clearing demo data on startup');
-            localStorage.removeItem('user');
-            localStorage.removeItem('isAuthenticated');
-          }
-        } catch (error) {
-          // Invalid JSON, clear it
-          localStorage.removeItem('user');
-          localStorage.removeItem('isAuthenticated');
-        }
-      }
-    };
-    
-    cleanupDemoData();
-  }, []); // Run only once on mount
+    let mounted = true;
 
-  // Check localStorage on mount and when refreshKey changes
-  useEffect(() => {
-    const authStatus = localStorage.getItem('isAuthenticated');
-    const userData = localStorage.getItem('user');
-    
-    console.log('useAuth: Checking localStorage', { authStatus, userData: userData?.substring(0, 100) });
-    
-    if (authStatus === 'true' && userData) {
-      setIsAuthenticated(true);
-      try {
-        const parsedUser = JSON.parse(userData);
-        console.log('useAuth: Parsed user from localStorage:', parsedUser);
-        setStoredUser(parsedUser);
-      } catch (error) {
-        console.error('Failed to parse stored user data:', error);
-        setStoredUser(null);
-        setIsAuthenticated(false);
-      }
-    } else {
-      setIsAuthenticated(false);
-      setStoredUser(null);
+    async function init() {
+      // Try to get current session from Supabase client
+      const { data } = await supabase.auth.getSession();
+      if (!mounted) return;
+      setUser(data?.session?.user ?? null);
+      setLoading(false);
     }
-  }, [refreshKey]);
+    init();
 
-  // SERVERLESS DEMO: Never call API, only use localStorage
-  const { data: apiUser, isLoading } = useQuery({
-    queryKey: ["/api/auth/user", refreshKey],
-    retry: false,
-    enabled: false, // DISABLED: Never fetch from API in serverless demo
-  });
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
 
-  // ONLY use stored user from localStorage - never use API user
-  const user = storedUser;
-  const finalIsAuthenticated = isAuthenticated;
+    return () => {
+      mounted = false;
+      sub?.subscription?.unsubscribe?.();
+    };
+  }, []);
 
-  console.log('useAuth: Final state', { 
-    storedUser: storedUser ? `${(storedUser as any).firstName} ${(storedUser as any).lastName}` : null,
-    apiUser: apiUser ? `${(apiUser as any).firstName} ${(apiUser as any).lastName}` : null,
-    finalUser: user ? `${(user as any).firstName} ${(user as any).lastName}` : null,
-    isAuthenticated: finalIsAuthenticated,
-    isLoading
-  });
+  // Sign in with Supabase and then exchange token for server session
+  const signIn = async (email: string, password: string) => {
+    // 1) Sign in with Supabase
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      throw error;
+    }
 
-  return {
-    user,
-    isLoading,
-    isAuthenticated: finalIsAuthenticated,
-    refreshAuth: () => setRefreshKey(prev => prev + 1), // Method to manually refresh auth state
+    // 2) Extract access token and POST it to your server to create a server session
+    const accessToken = data?.session?.access_token;
+    if (!accessToken) {
+      // No token => still return; maybe using magic link or other flow
+      return { user: data?.user ?? null };
+    }
+
+    const resp = await fetch("/api/auth/supabase-login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include", // important so server can set session cookie
+      body: JSON.stringify({ accessToken }),
+    });
+
+    if (!resp.ok) {
+      const text = await resp.text().catch(() => "");
+      throw new Error(`Server session exchange failed: ${resp.status} ${text}`);
+    }
+
+    // Optionally refresh user from Supabase client or map server response
+    const { data: sessionData } = await supabase.auth.getSession();
+    setUser(sessionData?.session?.user ?? null);
+
+    return { user: sessionData?.session?.user ?? null };
   };
+
+  const signOut = async () => {
+    // Sign out from Supabase and tell server to clear session if needed
+    await supabase.auth.signOut();
+    try {
+      await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+    } catch (e) {
+      // ignore
+    }
+    setUser(null);
+  };
+
+  const signUp = async (email: string, password: string) => {
+    const result = await supabase.auth.signUp({ email, password });
+    return result;
+  };
+
+  return { user, loading, signIn, signOut, signUp };
 }
