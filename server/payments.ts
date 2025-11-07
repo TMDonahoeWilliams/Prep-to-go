@@ -35,12 +35,22 @@ import { eq, and } from 'drizzle-orm';
 
 export const paymentStorage = {
   // Create or update subscription
+  // Adjusted: choose on-conflict target dynamically:
+  // - if stripeSubscriptionId is provided, keep existing behavior (conflict on stripeSubscriptionId)
+  // - if stripeSubscriptionId is null/undefined (one-time / lifetime purchases), conflict on (userId, planType)
   async upsertSubscription(subscriptionData: typeof subscriptions.$inferInsert) {
+    // Determine conflict target: if we have a stripeSubscriptionId, use it.
+    // For one-time purchases where stripeSubscriptionId may be null, use (userId, planType) as the conflict target.
+    // NOTE: Postgres requires a unique constraint/index on the conflict target; ensure a unique index exists on (user_id, plan_type).
+    const conflictTarget = subscriptionData.stripeSubscriptionId
+      ? subscriptions.stripeSubscriptionId
+      : [subscriptions.userId, subscriptions.planType];
+
     return await db
       .insert(subscriptions)
       .values(subscriptionData)
       .onConflictDoUpdate({
-        target: subscriptions.stripeSubscriptionId,
+        target: conflictTarget,
         set: {
           status: subscriptionData.status,
           currentPeriodStart: subscriptionData.currentPeriodStart,
