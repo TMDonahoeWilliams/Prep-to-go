@@ -72,6 +72,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const subscription = subscriptionResult[0];
     
+    // Note: planType is currently hardcoded as 'basic' for all subscriptions.
+    // In the future, this should be stored in the subscription record or derived from payment metadata.
     const paymentStatus = {
       hasPaidAccess: true,
       subscriptionStatus: subscription.status,

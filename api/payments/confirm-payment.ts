@@ -103,6 +103,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.log(`User found: ${user.id} (${user.email})`);
 
     // Check if user already has an active subscription
+    // Note: We check before inserting because upsertSubscription uses stripeSubscriptionId 
+    // as conflict target, which is NULL for one-time payments. This prevents duplicate 
+    // subscription records when the same user makes multiple one-time payments.
     const existingSubscription = await paymentStorage.getUserSubscription(user.id);
     
     let dbSubscription;
@@ -118,7 +121,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       
       const subscriptionData = {
         userId: user.id,
-        stripeCustomerId: paymentIntent.customer as string | null || null,
+        stripeCustomerId: paymentIntent.customer as string | null,
         stripeSubscriptionId: null, // One-time payment, no subscription ID
         stripePriceId: null,
         status: 'active',
