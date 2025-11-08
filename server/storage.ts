@@ -2,14 +2,12 @@
  * server/storage.ts
  *
  * Lazily loads the paymentStorage module from ./payments (Vercel-friendly).
- * Exports both a named `storage` object and the default export so existing
- * import styles work:
- *   import { storage } from './storage';
- *   import storage from './storage';
+ * Exports both a named `storage` object and a default export so existing
+ * import sites that use `import { storage } from './storage'` continue to work.
  *
- * Each helper function dynamically imports ./payments(.js) at call time and
- * delegates to the underlying paymentStorage implementation. If the payments
- * module cannot be resolved, the helpers throw a clear error (logged to Vercel).
+ * Each exported helper dynamically imports ./payments(.js) and delegates to the
+ * underlying paymentStorage implementation. If the payments module cannot be loaded,
+ * the helpers throw a clear error that will appear in function logs.
  */
 
 type PaymentsModule = { paymentStorage?: any } | null;
@@ -19,8 +17,6 @@ let cachedPaymentsModule: PaymentsModule | undefined = undefined;
 async function loadPaymentsModule(): Promise<PaymentsModule> {
   if (cachedPaymentsModule !== undefined) return cachedPaymentsModule;
   try {
-    // Try the compiled .js path first (Vercel/ts build output)
-    // Use dynamic import so a missing payments file doesn't crash module evaluation
     const mod = await import('./payments.js');
     cachedPaymentsModule = (mod as PaymentsModule) || null;
     return cachedPaymentsModule;
