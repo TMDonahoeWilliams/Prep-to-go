@@ -1,156 +1,138 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import bcrypt from 'bcrypt';
-import { z } from 'zod';
 
-const loginSchema = z.object({
-  email: z.string().email("Invalid email address"),
-  password: z.string().min(1, "Password is required"),
-});
-
+/**
+ * POST /api/auth/login
+ *
+ * - Returns JSON (never redirects) so SPA clients can handle navigation.
+ * - Tries to set a server session if available (req.session). If session middleware is not present
+ *   (serverless), sets a minimal HttpOnly cookie so the browser has a server-bound identifier.
+ * - Expects body: { email, password }
+ *
+ * Response:
+ *  - 200 { success: true, message, userId }
+ *  - 4xx/5xx { success: false, error: { code, message, details? } }
+ */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
-    // Set CORS headers first
+    // CORS / headers for browser clients. Keep minimal and safe.
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     res.setHeader('Content-Type', 'application/json');
 
-    // Handle preflight
     if (req.method === 'OPTIONS') {
-      return res.status(200).json({ message: 'OK' });
+      return res.status(200).json({ success: true, message: 'OK' });
     }
-
-    // Only handle POST requests
     if (req.method !== 'POST') {
-      return res.status(405).json({ message: 'Method not allowed' });
+      return res.status(405).json({ success: false, error: { code: 'METHOD_NOT_ALLOWED', message: 'Only POST allowed' } });
     }
 
-    // Log the request for debugging
-    console.log('Login request received:', JSON.stringify(req.body));
+    const body = req.body || {};
+    const email = (body.email || '').toString().trim().toLowerCase();
+    const password = (body.password || '').toString();
 
-    // Validate request body exists
-    if (!req.body) {
-      return res.status(400).json({ message: 'Request body is required' });
-    }
-
-    // Validate request body with Zod
-    const validationResult = loginSchema.safeParse(req.body);
-    
-    if (!validationResult.success) {
-      console.log('Validation failed:', validationResult.error);
-      return res.status(400).json({ 
-        message: 'Validation failed',
-        errors: validationResult.error.errors.map(err => ({
-          field: err.path.join('.'),
-          message: err.message
-        }))
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'MISSING_CREDENTIALS', message: 'Email and password are required' },
       });
     }
 
-    const validatedData = validationResult.data;
-    
-    // For demo purposes, simulate user lookup
-    // In a real production app, you would query your database here
-    
-    // For serverless demo, extract real name from email or use generic but not "Demo User"
-    const emailParts = validatedData.email.toLowerCase().split('@')[0].split(/[._-]/);
-    
-    // Try to create meaningful names from email parts
-    let firstName = 'User';
-    let lastName = 'Account';
-    
-    if (emailParts.length >= 2) {
-      firstName = emailParts[0].charAt(0).toUpperCase() + emailParts[0].slice(1);
-      lastName = emailParts[1].charAt(0).toUpperCase() + emailParts[1].slice(1);
-    } else if (emailParts.length === 1) {
-      firstName = emailParts[0].charAt(0).toUpperCase() + emailParts[0].slice(1);
-      lastName = 'User';
-    }
-    
-    // Ensure we never return "Demo User"
-    if (firstName === 'Demo' && lastName === 'User') {
-      firstName = 'Account';
-      lastName = 'User';
-    }
-    
-    // For demo purposes, derive a likely role based on email patterns
-    // In production, this would come from the database
-    let userRole = null;
-    
-    // Check for common parent email patterns
-    if (validatedData.email.toLowerCase().includes('parent') || 
-        validatedData.email.toLowerCase().includes('mom') ||
-        validatedData.email.toLowerCase().includes('dad') ||
-        validatedData.email.toLowerCase().includes('family')) {
-      userRole = 'parent';
-    }
-    // Check for common student email patterns  
-    else if (validatedData.email.toLowerCase().includes('student') ||
-             validatedData.email.toLowerCase().includes('edu') ||
-             emailParts[0].match(/\d{4}/) || // graduation year pattern
-             validatedData.email.toLowerCase().includes('college')) {
-      userRole = 'student';
-    }
-    // For testing purposes, assign role based on email domain or default to student
-    else if (validatedData.email.includes('@')) {
-      userRole = 'student'; // Default to student for demo
+    // Dynamic import of your server storage/auth helpers so Vercel resolves compiled modules correctly
+    let storageModule: any;
+    try {
+      storageModule = await import('../../server/storage.js');
+    } catch (errJs) {
+      try {
+        storageModule = await import('../../server/storage');
+      } catch (errTs) {
+        console.warn('Could not import server storage module:', errJs, errTs);
+        storageModule = null;
+      }
     }
 
-    const loginUser = {
-      id: `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      email: validatedData.email,
-      firstName: firstName,
-      lastName: lastName,
-      profileImageUrl: null,
-      role: userRole, // Now provides a role based on email pattern matching
-      emailVerified: true,
-      passwordHash: '$2b$12$example.hash.here', // This would be the real hash from DB
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    
-    // For demo, accept any password (in real app, verify against stored hash)
-    const userExists = true; // In real app: check if user exists in database
-    
-    if (!userExists) {
-      return res.status(401).json({ message: 'Invalid email or password' });
+    // Attempt to validate credentials against your DB user store if available
+    let user: any = null;
+    if (storageModule && storageModule.getUserByEmail) {
+      try {
+        const found = await storageModule.getUserByEmail(email);
+        user = Array.isArray(found) ? found[0] : found;
+      } catch (err) {
+        console.error('storage.getUserByEmail error:', err);
+        // continue; will return auth failure below
+      }
     }
-    
-    // Skip password verification for demo (in real app, use bcrypt.compare)
-    const isValidPassword = true; // In real app: await bcrypt.compare(validatedData.password, user.passwordHash);
-    
-    if (!isValidPassword) {
-      return res.status(401).json({ message: 'Invalid email or password' });
-    }
-    
-    console.log('User logged in successfully:', loginUser.email);
-    
-    // Return user without password hash
-    const { passwordHash: _, ...userWithoutPassword } = loginUser;
-    
-    return res.status(200).json(userWithoutPassword);
-    
-  } catch (error: any) {
-    console.error('Login error:', error);
-    
-    // Ensure we always return JSON, even on errors
-    try {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ 
-          message: 'Validation failed',
-          errors: error.errors.map(err => ({
-            field: err.path.join('.'),
-            message: err.message
-          }))
+
+    // If storage is available and user found, validate password hash
+    if (user) {
+      const passwordHash = user.passwordHash || user.password_hash || user.password; // accomodate different naming
+      if (!passwordHash) {
+        // no local password stored — cannot authenticate here
+        return res.status(400).json({
+          success: false,
+          error: { code: 'NO_PASSWORD_LOCALLY', message: 'This account requires password setup via Supabase or completed registration' },
         });
       }
-      
-      return res.status(500).json({ 
-        message: error.message || 'Login failed',
-        error: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      const ok = await bcrypt.compare(password, passwordHash);
+      if (!ok) {
+        return res.status(401).json({
+          success: false,
+          error: { code: 'INVALID_CREDENTIALS', message: 'Invalid email or password' },
+        });
+      }
+    } else {
+      // Storage not available or user not found. We do not attempt to sign in here.
+      // If your app uses Supabase for auth (recommended), the client-side should call Supabase signIn
+      // and then exchange token with the server. Return an instructive message to the client.
+      return res.status(401).json({
+        success: false,
+        error: {
+          code: 'USER_NOT_FOUND',
+          message:
+            'User not found in server DB. If you use Supabase auth, please sign in via Supabase client and exchange token with the server.',
+        },
       });
-    } catch (jsonError) {
-      // If JSON fails, return plain text
+    }
+
+    // At this point credentials valid. Try to attach server-side session if supported.
+    try {
+      // If express-session or similar is available on req.session, use it.
+      if ((req as any).session) {
+        (req as any).session.userId = user.id;
+        (req as any).session.userEmail = user.email;
+        // some session libs have save()
+        if (typeof (req as any).session.save === 'function') {
+          await (req as any).session.save();
+        }
+        console.log('User logged in and session saved (server session):', user.email);
+      } else {
+        // No session middleware: set an HttpOnly cookie with a minimal identifier.
+        // NOTE: in production you should set a secure server-side session token instead of embedding user info.
+        const cookieVal = encodeURIComponent(JSON.stringify({ id: user.id }));
+        const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toUTCString(); // 7 days
+        // Secure & SameSite=None required for cross-site cookie acceptance; ensure you use HTTPS in prod.
+        res.setHeader(
+          'Set-Cookie',
+          `session_user=${cookieVal}; Path=/; Expires=${expires}; HttpOnly; Secure; SameSite=None`
+        );
+        console.log('User logged in and lightweight cookie set:', user.email);
+      }
+    } catch (sessErr) {
+      console.warn('Failed to attach server session/cookie:', sessErr);
+    }
+
+    // Return canonical JSON success (client will perform SPA navigation)
+    return res.status(200).json({
+      success: true,
+      message: 'User logged in successfully',
+      userId: user.id,
+    });
+  } catch (err: any) {
+    console.error('auth/login error:', err);
+    try {
+      return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err?.message || 'Internal server error' } });
+    } catch {
       res.setHeader('Content-Type', 'text/plain');
       return res.status(500).send('Internal server error');
     }
