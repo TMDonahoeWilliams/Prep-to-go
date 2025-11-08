@@ -1,108 +1,111 @@
-// Stripe server-side configuration
-import Stripe from 'stripe';
+// Storage/payment helper module
+// Provides helpers used by API routes. Adjust queries to your DB/query builder if needed.
 
-let stripeInstance: Stripe | null = null;
-
-function getStripe(): Stripe {
-  if (!stripeInstance) {
-    if (!process.env.STRIPE_SECRET_KEY) {
-      console.error('STRIPE_SECRET_KEY environment variable is not set');
-      console.error('Available env vars:', Object.keys(process.env).filter(k => k.includes('STRIPE')));
-      throw new Error('STRIPE_SECRET_KEY is not configured');
-    }
-    console.log('Initializing Stripe with key:', process.env.STRIPE_SECRET_KEY?.substring(0, 10) + '...');
-    stripeInstance = new Stripe(process.env.STRIPE_SECRET_KEY, {
-      apiVersion: '2024-11-20.acacia' as any,
-    });
-  }
-  return stripeInstance;
-}
-
-// Export a proxy object that lazily initializes Stripe
-const stripeProxy = new Proxy({} as Stripe, {
-  get: (target, prop) => {
-    const stripe = getStripe();
-    return (stripe as any)[prop];
-  }
-});
-
-export default stripeProxy;
-
-// Payment-related storage functions
-import { db } from './db';
-import { subscriptions, payments, users } from '@shared/schema';
-import { eq, and } from 'drizzle-orm';
+import { db } from './db'; // adjust per your project
+import { users, payments, subscriptions } from './db/schema'; // adjust per your schema definitions
 
 export const paymentStorage = {
-  // Create or update subscription
-  // Adjusted: choose on-conflict target dynamically:
-  // - if stripeSubscriptionId is provided, keep existing behavior (conflict on stripeSubscriptionId)
-  // - if stripeSubscriptionId is null/undefined (one-time / lifetime purchases), conflict on (userId, planType)
-  async upsertSubscription(subscriptionData: typeof subscriptions.$inferInsert) {
-    // Determine conflict target: if we have a stripeSubscriptionId, use it.
-    // For one-time purchases where stripeSubscriptionId may be null, use (userId, planType) as the conflict target.
-    // NOTE: Postgres requires a unique constraint/index on the conflict target; ensure a unique index exists on (user_id, plan_type).
-    const conflictTarget = subscriptionData.stripeSubscriptionId
-      ? subscriptions.stripeSubscriptionId
-      : [subscriptions.userId, subscriptions.planType];
-
-    return await db
-      .insert(subscriptions)
-      .values(subscriptionData)
-      .onConflictDoUpdate({
-        target: conflictTarget,
-        set: {
-          status: subscriptionData.status,
-          currentPeriodStart: subscriptionData.currentPeriodStart,
-          currentPeriodEnd: subscriptionData.currentPeriodEnd,
-          cancelAtPeriodEnd: subscriptionData.cancelAtPeriodEnd,
-          updatedAt: new Date(),
-        },
-      })
-      .returning();
-  },
-
-  // Get user's active subscription
-  async getUserSubscription(userId: string) {
-    return await db
-      .select()
-      .from(subscriptions)
-      .where(
-        and(
-          eq(subscriptions.userId, userId),
-          eq(subscriptions.status, 'active')
-        )
-      )
-      .limit(1);
-  },
-
-  // Check if user has paid access
-  async hasUserPaidAccess(userId: string) {
-    const userSubs = await this.getUserSubscription(userId);
-    return userSubs.length > 0;
-  },
-
-  // Record payment
-  async recordPayment(paymentData: typeof payments.$inferInsert) {
-    return await db
-      .insert(payments)
-      .values(paymentData)
-      .returning();
-  },
-
-  // Get user by email
+  // ----- Users -----
   async getUserByEmail(email: string) {
-    return await db
-      .select()
-      .from(users)
-      .where(eq(users.email, email))
-      .limit(1);
+    return await db.select().from(users).where(users.email.eq(email)).limit(1);
   },
 
-  // Update user's Stripe customer ID
+  async getUserById(id: string) {
+    return await db.select().from(users).where(users.id.eq(id)).limit(1);
+  },
+
+  async createUser(payload: any) {
+    // payload fields: email, role, emailVerified, needsPasswordSetup, firstName, lastName, createdAt
+    return await db.insert(users).values({
+      email: payload.email,
+      role: payload.role ?? 'student',
+      email_verified: payload.emailVerified ?? false,
+      needs_password_setup: payload.needsPasswordSetup ?? false,
+      first_name: payload.firstName ?? null,
+      last_name: payload.lastName ?? null,
+      created_at: payload.createdAt ?? new Date().toISOString(),
+    }).returning();
+  },
+
   async updateUserStripeCustomerId(userId: string, stripeCustomerId: string) {
-    // Add stripeCustomerId to users table if it doesn't exist
-    // For now, we'll store it in the subscription record
-    return true;
-  }
+    return await db.update(users).set({ stripe_customer_id: stripeCustomerId }).where(users.id.eq(userId));
+  },
+
+  async linkSupabaseUser(userId: string, supabaseUserId: string | null) {
+    return await db.update(users).set({ supabase_user_id: supabaseUserId }).where(users.id.eq(userId));
+  },
+
+  async updateUserPaidStatus(userId: string, data: { hasPaidAccess?: boolean; paidAt?: string }) {
+    const updates: any = {};
+    if (typeof data.hasPaidAccess !== 'undefined') updates.has_paid_access = data.hasPaidAccess;
+    if (data.paidAt) updates.paid_at = data.paidAt;
+    return await db.update(users).set(updates).where(users.id.eq(userId));
+  },
+
+  async setUserPasswordHash(userId: string, passwordHash: string) {
+    return await db.update(users).set({ password_hash: passwordHash }).where(users.id.eq(userId));
+  },
+
+  // ----- Password setup token -----
+  async savePasswordSetupToken(userId: string, token: string, expiresAt: string) {
+    return await db.update(users).set({
+      password_setup_token: token,
+      password_setup_token_expires_at: expiresAt,
+    }).where(users.id.eq(userId));
+  },
+
+  async findPasswordSetupByToken(token: string) {
+    return await db.select().from(users).where(users.password_setup_token.eq(token)).limit(1);
+  },
+
+  async clearPasswordSetupToken(userId: string) {
+    return await db.update(users).set({
+      password_setup_token: null,
+      password_setup_token_expires_at: null,
+      needs_password_setup: false,
+      email_verified: true,
+    }).where(users.id.eq(userId));
+  },
+
+  // ----- Payments / Subscriptions -----
+  async recordPayment(paymentData: any) {
+    return await db.insert(payments).values(paymentData).returning();
+  },
+
+  async upsertSubscription(sub: any) {
+    // simplistic upsert: try update where userId/planType matches, otherwise insert
+    const existing = await db.select().from(subscriptions).where(subscriptions.userId.eq(sub.userId)).limit(1);
+    if (existing && existing.length > 0) {
+      return await db.update(subscriptions).set({
+        status: sub.status,
+        plan_type: sub.planType,
+        stripe_subscription_id: sub.stripeSubscriptionId,
+        current_period_start: sub.currentPeriodStart,
+        current_period_end: sub.currentPeriodEnd,
+        cancel_at_period_end: sub.cancelAtPeriodEnd ?? false,
+      }).where(subscriptions.userId.eq(sub.userId));
+    } else {
+      return await db.insert(subscriptions).values({
+        user_id: sub.userId,
+        status: sub.status,
+        plan_type: sub.planType,
+        stripe_subscription_id: sub.stripeSubscriptionId,
+        current_period_start: sub.currentPeriodStart,
+        current_period_end: sub.currentPeriodEnd,
+        cancel_at_period_end: sub.cancelAtPeriodEnd ?? false,
+        created_at: new Date().toISOString(),
+      }).returning();
+    }
+  },
+
+  async getUserSubscription(userId: string) {
+    return await db.select().from(subscriptions).where(subscriptions.userId.eq(userId)).limit(1);
+  },
+
+  async hasUserPaidAccess(userId: string) {
+    const subs = await this.getUserSubscription(userId);
+    return subs && subs.length > 0;
+  },
 };
+
+export default paymentStorage;
