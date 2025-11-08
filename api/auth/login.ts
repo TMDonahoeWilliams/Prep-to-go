@@ -4,42 +4,43 @@ import bcrypt from 'bcrypt';
 /**
  * POST /api/auth/login
  *
- * - Returns JSON (never redirects) so SPA clients can handle navigation.
- * - Tries to set a server session if available (req.session). If session middleware is not present
- *   (serverless), sets a minimal HttpOnly cookie so the browser has a server-bound identifier.
- * - Expects body: { email, password }
+ * - Returns structured JSON and never issues redirects (SPA clients must navigate).
+ * - Sets CORS and credential headers safely so Set-Cookie can be accepted.
+ * - Tries to validate credentials against server storage (dynamic import).
  *
- * Response:
- *  - 200 { success: true, message, userId }
- *  - 4xx/5xx { success: false, error: { code, message, details? } }
+ * Response shapes:
+ *  - 200 { success: true, user: { id, email, firstName?, lastName? } }
+ *  - 400 { success: false, error: { code, message } }  // bad request
+ *  - 401 { success: false, error: { code, message } }  // auth failed
+ *  - 403 { success: false, error: { code, message } }  // forbidden (e.g., needs password setup)
+ *  - 500 { success: false, error: { code, message } }  // server error
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // CORS + credentials: allow the incoming origin (not "*") so cookies are accepted.
+  const origin = (req.headers.origin as string) || process.env.APP_BASE_URL || '*';
+  res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).json({ success: true, message: 'OK' });
+  }
+
+  if (req.method !== 'POST') {
+    return res.status(405).json({ success: false, error: { code: 'METHOD_NOT_ALLOWED', message: 'Only POST allowed' } });
+  }
+
   try {
-    // CORS / headers for browser clients. Keep minimal and safe.
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-    res.setHeader('Content-Type', 'application/json');
-
-    if (req.method === 'OPTIONS') {
-      return res.status(200).json({ success: true, message: 'OK' });
-    }
-    if (req.method !== 'POST') {
-      return res.status(405).json({ success: false, error: { code: 'METHOD_NOT_ALLOWED', message: 'Only POST allowed' } });
-    }
-
     const body = req.body || {};
     const email = (body.email || '').toString().trim().toLowerCase();
     const password = (body.password || '').toString();
 
     if (!email || !password) {
-      return res.status(400).json({
-        success: false,
-        error: { code: 'MISSING_CREDENTIALS', message: 'Email and password are required' },
-      });
+      return res.status(400).json({ success: false, error: { code: 'MISSING_CREDENTIALS', message: 'Email and password are required' } });
     }
 
-    // Dynamic import of your server storage/auth helpers so Vercel resolves compiled modules correctly
+    // Dynamic import of server storage so build-time missing modules don't crash imports.
     let storageModule: any = null;
     try {
       storageModule = await import('../../server/storage.js');
@@ -52,90 +53,83 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    // Attempt to validate credentials against your DB user store if available
-    let user: any = null;
-    if (storageModule && typeof storageModule.getUserByEmail === 'function') {
-      try {
-        const found = await storageModule.getUserByEmail(email);
-        user = Array.isArray(found) ? found[0] : found;
-      } catch (err) {
-        console.error('storage.getUserByEmail error:', err);
-        // continue; will return auth failure below
-      }
-    } else {
-      console.warn('storageModule.getUserByEmail not available; login handler will not validate local password');
+    if (!storageModule) {
+      console.error('storage module unavailable; cannot validate credentials');
+      return res.status(500).json({ success: false, error: { code: 'STORAGE_UNAVAILABLE', message: 'Server storage not available' } });
     }
 
-    // If user found in local storage, validate password
-    if (user) {
-      const passwordHash = user.passwordHash || user.password_hash || user.password; // accommodate different naming
-      if (!passwordHash) {
-        // no local password stored — cannot authenticate here
-        return res.status(400).json({
-          success: false,
-          error: { code: 'NO_PASSWORD_LOCALLY', message: 'This account requires password setup via Supabase or completed registration' },
-        });
-      }
-      const ok = await bcrypt.compare(password, passwordHash);
-      if (!ok) {
-        return res.status(401).json({
-          success: false,
-          error: { code: 'INVALID_CREDENTIALS', message: 'Invalid email or password' },
-        });
-      }
-    } else {
-      // Storage not available or user not found.
-      // If you rely on Supabase auth, instruct the client to use Supabase sign-in and token exchange.
-      return res.status(401).json({
+    // Accept either named exports or default
+    const storage = storageModule.storage ?? storageModule.default ?? storageModule;
+
+    // getUserByEmail may return an array or single row; normalize to first row.
+    let user: any = null;
+    try {
+      const found = await storage.getUserByEmail?.(email);
+      if (Array.isArray(found)) user = found.length > 0 ? found[0] : null;
+      else user = found ?? null;
+      console.log('storage.getUserByEmail result for', email, '=>', !!user);
+    } catch (err) {
+      console.error('storage.getUserByEmail error:', err);
+      return res.status(500).json({ success: false, error: { code: 'STORAGE_ERROR', message: 'Error querying user storage' } });
+    }
+
+    if (!user) {
+      // Intentionally do not reveal whether an email exists in production, but for debugging return a code.
+      console.log('Login failed: user not found:', email);
+      return res.status(401).json({ success: false, error: { code: 'USER_NOT_FOUND', message: 'Invalid email or password' } });
+    }
+
+    // Determine password hash field name flexibly
+    const passwordHash = user.passwordHash ?? user.password_hash ?? user.password ?? null;
+
+    if (!passwordHash) {
+      // The user exists but has no local password (maybe created via payment flow or Supabase).
+      console.log('Login failed: user requires password setup:', email);
+      return res.status(403).json({
         success: false,
-        error: {
-          code: 'USER_NOT_FOUND',
-          message:
-            'User not found in server DB. If you use Supabase auth, please sign in via Supabase client and exchange token with the server.',
-        },
+        error: { code: 'NEEDS_PASSWORD_SETUP', message: 'This account requires password setup. Check your email for setup instructions.' },
       });
     }
 
-    // At this point credentials valid. Try to attach server-side session if supported.
+    // Validate password
+    const match = await bcrypt.compare(password, passwordHash);
+    if (!match) {
+      console.log('Login failed: invalid password for', email);
+      return res.status(401).json({ success: false, error: { code: 'INVALID_CREDENTIALS', message: 'Invalid email or password' } });
+    }
+
+    // Credentials valid. Attach session/cookie if possible.
     try {
-      // If express-session or similar is available on req.session, use it.
       if ((req as any).session) {
         (req as any).session.userId = user.id;
         (req as any).session.userEmail = user.email;
-        // some session libs have save()
         if (typeof (req as any).session.save === 'function') {
           await (req as any).session.save();
         }
         console.log('User logged in and session saved (server session):', user.email);
       } else {
-        // No session middleware: set an HttpOnly cookie with a minimal identifier.
-        // NOTE: in production you should set a secure server-side session token instead of embedding user info.
+        // Fallback: set a minimal HttpOnly cookie. In production use secure server-side session tokens.
         const cookieVal = encodeURIComponent(JSON.stringify({ id: user.id }));
         const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toUTCString(); // 7 days
-        // Secure & SameSite=None required for cross-site cookie acceptance; ensure you use HTTPS in prod.
-        res.setHeader(
-          'Set-Cookie',
-          `session_user=${cookieVal}; Path=/; Expires=${expires}; HttpOnly; Secure; SameSite=None`
-        );
+        // Use SameSite=None and Secure for cross-site cookies over HTTPS.
+        res.setHeader('Set-Cookie', `session_user=${cookieVal}; Path=/; Expires=${expires}; HttpOnly; Secure; SameSite=None`);
         console.log('User logged in and lightweight cookie set:', user.email);
       }
     } catch (sessErr) {
-      console.warn('Failed to attach server session/cookie:', sessErr);
+      console.warn('Failed to attach session/cookie:', sessErr);
     }
 
-    // Return canonical JSON success (client will perform SPA navigation)
-    return res.status(200).json({
-      success: true,
-      message: 'User logged in successfully',
-      userId: user.id,
-    });
+    // Return sanitized user data (do not include password hash)
+    const responseUser = {
+      id: user.id,
+      email: user.email,
+      firstName: user.first_name ?? user.firstName ?? null,
+      lastName: user.last_name ?? user.lastName ?? null,
+    };
+
+    return res.status(200).json({ success: true, message: 'User logged in successfully', user: responseUser });
   } catch (err: any) {
-    console.error('auth/login error:', err);
-    try {
-      return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err?.message || 'Internal server error' } });
-    } catch {
-      res.setHeader('Content-Type', 'text/plain');
-      return res.status(500).send('Internal server error');
-    }
+    console.error('auth/login unexpected error:', err);
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err?.message || 'Internal server error' } });
   }
 }
