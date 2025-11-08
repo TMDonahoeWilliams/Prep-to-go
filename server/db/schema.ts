@@ -1,4 +1,3 @@
-// server/db/schema.ts
 // Minimal placeholder schema to satisfy imports during build/runtime.
 // Replace these with your real ORM/schema exports in production.
 
@@ -41,7 +40,8 @@ export const subscriptions = {
   created_at: 'created_at',
 };
 
-// Export small helper placeholders (used by some ORMs). Replace with real implementations.
+// Small helper placeholders (some code expects eq/and helpers from ORMs).
+// Replace with your real ORM utilities if needed.
 export function eq(/* column: any, value: any */) {
   return null as any;
 }
