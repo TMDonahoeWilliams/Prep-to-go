@@ -74,7 +74,6 @@ const paymentStorage = {
       throw notReadyError('getUserByEmail');
     }
     try {
-      // Delegate to db.getUserByEmail in the shim or real DB.
       return await mod.db.getUserByEmail(email);
     } catch (err) {
       console.error('getUserByEmail error:', err);
@@ -233,6 +232,5 @@ const paymentStorage = {
   },
 };
 
-// Export as named and default without re-declaring the symbol
 export { paymentStorage };
 export default paymentStorage;
