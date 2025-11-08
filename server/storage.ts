@@ -2,14 +2,14 @@
  * server/storage.ts
  *
  * Lazily loads the paymentStorage module from ./payments (Vercel-friendly).
- * This avoids a hard crash at module-evaluation time if ./payments cannot be resolved
- * (e.g., wrong path or not present in the build output).
+ * Exports both a named `storage` object and the default export so existing
+ * import styles work:
+ *   import { storage } from './storage';
+ *   import storage from './storage';
  *
- * Each exported helper will attempt to import the payments module at call time,
- * normalize the first-row result, and call the underlying paymentStorage functions.
- *
- * If the payments module cannot be loaded, the helpers will throw a clear error
- * that will appear in the function logs instead of crashing the entire import.
+ * Each helper function dynamically imports ./payments(.js) at call time and
+ * delegates to the underlying paymentStorage implementation. If the payments
+ * module cannot be resolved, the helpers throw a clear error (logged to Vercel).
  */
 
 type PaymentsModule = { paymentStorage?: any } | null;
@@ -20,14 +20,14 @@ async function loadPaymentsModule(): Promise<PaymentsModule> {
   if (cachedPaymentsModule !== undefined) return cachedPaymentsModule;
   try {
     // Try the compiled .js path first (Vercel/ts build output)
+    // Use dynamic import so a missing payments file doesn't crash module evaluation
     const mod = await import('./payments.js');
-    cachedPaymentsModule = mod as PaymentsModule;
+    cachedPaymentsModule = (mod as PaymentsModule) || null;
     return cachedPaymentsModule;
   } catch (errJs) {
     try {
-      // Fallback to TypeScript/TS-Node path (dev) or alternate bundling
       const mod = await import('./payments');
-      cachedPaymentsModule = mod as PaymentsModule;
+      cachedPaymentsModule = (mod as PaymentsModule) || null;
       return cachedPaymentsModule;
     } catch (errFallback) {
       console.error('Could not import server payments module:', errJs, errFallback);
@@ -45,17 +45,17 @@ function normalizeFirstRow(result: any) {
 
 async function getPaymentStorage(): Promise<any> {
   const mod = await loadPaymentsModule();
-  if (!mod || !mod.paymentStorage) {
-    // Some implementations export default (export default paymentStorage)
-    // so check default property too.
-    if (mod && (mod.default || (mod as any).paymentStorage)) {
-      return (mod as any).default ?? (mod as any).paymentStorage;
-    }
+  if (!mod) {
     throw new Error(
-      'paymentStorage module not available: ensure server/payments.ts exists and exports `paymentStorage` (or default).'
+      'paymentStorage module not available: ensure server/payments.ts exists and exports `paymentStorage` (or default export).'
     );
   }
-  return mod.paymentStorage;
+  // Accept either { paymentStorage } or default export
+  const ps = (mod as any).paymentStorage ?? (mod as any).default;
+  if (!ps) {
+    throw new Error('paymentStorage export not found on server/payments module');
+  }
+  return ps;
 }
 
 /* ----- Exported helpers that delegate to paymentStorage ----- */
@@ -124,8 +124,9 @@ export async function upsertSubscription(sub: any) {
   return await ps.upsertSubscription(sub);
 }
 
-/* Default export (keeps compatibility with `import storage from './storage'`) */
-const storage = {
+/* ----- Provide both named `storage` and default export for compatibility ----- */
+
+export const storage = {
   getUserByEmail,
   getUserById,
   createUser,
