@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import StripeLib from 'stripe';
+import Stripe from 'stripe';
 import { z } from 'zod';
 
 const schema = z.object({
@@ -11,8 +11,16 @@ const schema = z.object({
   lastName: z.string().optional(),
 });
 
+function safeJson(obj: any) {
+  try {
+    return JSON.stringify(obj);
+  } catch {
+    return String(obj);
+  }
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Basic CORS + preflight support for browser clients
+  // CORS + preflight
   const origin = (req.headers.origin as string) || process.env.APP_BASE_URL || '*';
   res.setHeader('Access-Control-Allow-Origin', origin);
   res.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -24,16 +32,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (!req.body) return res.status(400).json({ success: false, message: 'Request body required' });
   const parsed = schema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ success: false, message: 'Validation failed', errors: parsed.error.errors });
+  if (!parsed.success) {
+    return res.status(400).json({ success: false, message: 'Validation failed', errors: parsed.error.errors });
+  }
 
   const { amount, currency, userEmail, priceId, firstName, lastName } = parsed.data;
+
   const stripeSecret = process.env.STRIPE_SECRET_KEY;
   if (!stripeSecret) {
     console.error('STRIPE_SECRET_KEY missing');
-    return res.status(500).json({ success: false, message: 'Payment provider not configured' });
+    return res.status(500).json({ success: false, message: 'Payment provider not configured (missing STRIPE_SECRET_KEY)' });
   }
 
-  // Load paymentStorage module (be tolerant of .js/.ts compiled paths)
+  // Initialize Stripe client - do not hard-code an API version here.
+  // Optionally allow overriding via STRIPE_API_VERSION env var if you want to pin it.
+  const stripeOptions: any = {};
+  if (process.env.STRIPE_API_VERSION) stripeOptions.apiVersion = process.env.STRIPE_API_VERSION;
+  const stripe = new Stripe(stripeSecret, Object.keys(stripeOptions).length ? stripeOptions : undefined);
+
+  // Try to load paymentStorage
   let paymentsModule: any = null;
   try {
     paymentsModule = await import('../../server/payments.js');
@@ -45,58 +62,81 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(500).json({ success: false, message: 'Server payments module not available' });
     }
   }
-  const paymentStorage = (paymentsModule?.paymentStorage ?? paymentsModule?.default ?? paymentsModule);
-
+  const paymentStorage = paymentsModule?.paymentStorage ?? paymentsModule?.default ?? paymentsModule;
   if (!paymentStorage) {
     return res.status(500).json({ success: false, message: 'Payment storage not available' });
   }
 
-  // Find or create provisional app user
+  // Get or create provisional user
   let user: any = null;
   try {
     const found = await paymentStorage.getUserByEmail?.(userEmail);
     user = Array.isArray(found) ? found[0] : found ?? null;
   } catch (err) {
-    console.error('getUserByEmail error', err);
+    console.error('Error fetching user by email:', err);
+    // continue to attempt creation
   }
 
   if (!user) {
     if (typeof paymentStorage.createUser !== 'function') {
-      return res.status(500).json({ success: false, message: 'Cannot create provisional user' });
+      return res.status(500).json({ success: false, message: 'Cannot create provisional user; storage.createUser missing' });
     }
-    const created = await paymentStorage.createUser({
-      email: userEmail,
-      role: 'student',
-      emailVerified: false,
-      needsPasswordSetup: true,
-      firstName: firstName ?? null,
-      lastName: lastName ?? null,
-      createdAt: new Date().toISOString(),
-    });
-    user = Array.isArray(created) ? created[0] : created;
-    console.log('Provisional user created:', user?.id ?? '(no id)');
+    try {
+      const created = await paymentStorage.createUser({
+        email: userEmail,
+        role: 'student',
+        emailVerified: false,
+        needsPasswordSetup: true,
+        firstName: firstName ?? null,
+        lastName: lastName ?? null,
+        createdAt: new Date().toISOString(),
+      });
+      user = Array.isArray(created) ? created[0] : created;
+      console.log('Provisional user created for payment intent:', user?.id ?? '(no id)');
+    } catch (err) {
+      console.error('Failed to create provisional user:', err);
+      return res.status(500).json({ success: false, message: 'Failed to create provisional user' });
+    }
   }
 
-  // Create Stripe customer and PaymentIntent
-  const stripe = new StripeLib(stripeSecret, { apiVersion: '2024-11-20' as any });
-
+  // Create or reuse Stripe customer (with simple retry on transient errors)
   let customerId = user?.stripeCustomerId ?? user?.stripe_customer_id ?? null;
   if (!customerId) {
-    try {
-      const customer = await stripe.customers.create({
-        email: userEmail,
-        metadata: { userId: String(user.id) },
-      });
-      customerId = customer.id;
-      if (typeof paymentStorage.updateUserStripeCustomerId === 'function') {
-        await paymentStorage.updateUserStripeCustomerId(user.id, String(customerId));
+    let lastErr: any = null;
+    const maxAttempts = 2;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const customer = await stripe.customers.create({
+          email: userEmail,
+          metadata: { userId: String(user.id) },
+        });
+        customerId = customer.id;
+        // persist customer id if storage supports it
+        if (typeof paymentStorage.updateUserStripeCustomerId === 'function') {
+          try {
+            await paymentStorage.updateUserStripeCustomerId(user.id, String(customerId));
+          } catch (uErr) {
+            console.error('Failed to persist stripe customer id to storage:', uErr);
+          }
+        }
+        break;
+      } catch (err: any) {
+        lastErr = err;
+        console.warn(`Attempt ${attempt} to create Stripe customer failed:`, err?.message ?? err);
+        if (attempt < maxAttempts) await new Promise((r) => setTimeout(r, 250 * attempt));
       }
-    } catch (err) {
-      console.error('Failed to create Stripe customer:', err);
-      return res.status(500).json({ success: false, message: 'Stripe customer creation failed' });
+    }
+    if (!customerId) {
+      console.error('Stripe customer creation failed:', safeJson(lastErr));
+      return res.status(502).json({
+        success: false,
+        message: 'Stripe customer creation failed',
+        stripeError: lastErr?.message ?? safeJson(lastErr),
+      });
     }
   }
 
+  // Create payment intent
   try {
     const pi = await stripe.paymentIntents.create({
       amount,
@@ -112,9 +152,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       success: true,
       clientSecret: pi.client_secret,
       paymentIntentId: pi.id,
+      paymentIntentStatus: pi.status,
     });
   } catch (err: any) {
-    console.error('create payment intent error', err);
-    return res.status(500).json({ success: false, message: err?.message || 'Payment creation failed' });
+    console.error('Failed to create PaymentIntent:', err);
+    return res.status(500).json({ success: false, message: 'PaymentIntent creation failed', stripeError: err?.message ?? safeJson(err) });
   }
 }
