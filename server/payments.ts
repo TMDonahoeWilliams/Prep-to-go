@@ -233,5 +233,6 @@ const paymentStorage = {
   },
 };
 
-export const paymentStorage = paymentStorage;
+// Export as named and default without re-declaring the symbol
+export { paymentStorage };
 export default paymentStorage;
