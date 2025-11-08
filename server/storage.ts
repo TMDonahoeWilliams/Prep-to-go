@@ -1,115 +1,143 @@
 /**
- * storage.ts
+ * server/storage.ts
  *
- * Delegates to paymentStorage in server/payments.ts while exporting both a default export
- * and a named export `storage` to match existing import sites that use:
- *   import { storage } from './storage';
+ * Lazily loads the paymentStorage module from ./payments (Vercel-friendly).
+ * This avoids a hard crash at module-evaluation time if ./payments cannot be resolved
+ * (e.g., wrong path or not present in the build output).
  *
- * This file intentionally keeps the same function names as before but exposes them
- * via a single object so both `import storage from './storage'` and
- * `import { storage } from './storage'` work.
+ * Each exported helper will attempt to import the payments module at call time,
+ * normalize the first-row result, and call the underlying paymentStorage functions.
+ *
+ * If the payments module cannot be loaded, the helpers will throw a clear error
+ * that will appear in the function logs instead of crashing the entire import.
  */
 
-import paymentStorage from './payments';
+type PaymentsModule = { paymentStorage?: any } | null;
 
-async function normalizeFirstRow(result: any) {
+let cachedPaymentsModule: PaymentsModule | undefined = undefined;
+
+async function loadPaymentsModule(): Promise<PaymentsModule> {
+  if (cachedPaymentsModule !== undefined) return cachedPaymentsModule;
+  try {
+    // Try the compiled .js path first (Vercel/ts build output)
+    const mod = await import('./payments.js');
+    cachedPaymentsModule = mod as PaymentsModule;
+    return cachedPaymentsModule;
+  } catch (errJs) {
+    try {
+      // Fallback to TypeScript/TS-Node path (dev) or alternate bundling
+      const mod = await import('./payments');
+      cachedPaymentsModule = mod as PaymentsModule;
+      return cachedPaymentsModule;
+    } catch (errFallback) {
+      console.error('Could not import server payments module:', errJs, errFallback);
+      cachedPaymentsModule = null;
+      return null;
+    }
+  }
+}
+
+function normalizeFirstRow(result: any) {
   if (!result) return null;
   if (Array.isArray(result)) return result.length > 0 ? result[0] : null;
   return result;
 }
 
-const impl = {
-  // ----- Users -----
-  async getUserByEmail(email: string) {
-    if (!paymentStorage || typeof paymentStorage.getUserByEmail !== 'function') {
-      throw new Error('storage.getUserByEmail not implemented');
+async function getPaymentStorage(): Promise<any> {
+  const mod = await loadPaymentsModule();
+  if (!mod || !mod.paymentStorage) {
+    // Some implementations export default (export default paymentStorage)
+    // so check default property too.
+    if (mod && (mod.default || (mod as any).paymentStorage)) {
+      return (mod as any).default ?? (mod as any).paymentStorage;
     }
-    const res = await paymentStorage.getUserByEmail(email);
-    return normalizeFirstRow(res);
-  },
+    throw new Error(
+      'paymentStorage module not available: ensure server/payments.ts exists and exports `paymentStorage` (or default).'
+    );
+  }
+  return mod.paymentStorage;
+}
 
-  async getUserById(id: string) {
-    if (!paymentStorage || typeof paymentStorage.getUserById !== 'function') {
-      throw new Error('storage.getUserById not implemented');
-    }
-    const res = await paymentStorage.getUserById(id);
-    return normalizeFirstRow(res);
-  },
+/* ----- Exported helpers that delegate to paymentStorage ----- */
 
-  async createUser(payload: any) {
-    if (!paymentStorage || typeof paymentStorage.createUser !== 'function') {
-      throw new Error('storage.createUser not implemented');
-    }
-    const res = await paymentStorage.createUser(payload);
-    return normalizeFirstRow(res);
-  },
+export async function getUserByEmail(email: string) {
+  const ps = await getPaymentStorage();
+  const res = await ps.getUserByEmail(email);
+  return normalizeFirstRow(res);
+}
 
-  async updateUserStripeCustomerId(userId: string, stripeCustomerId: string) {
-    if (!paymentStorage || typeof paymentStorage.updateUserStripeCustomerId !== 'function') {
-      throw new Error('storage.updateUserStripeCustomerId not implemented');
-    }
-    return await paymentStorage.updateUserStripeCustomerId(userId, stripeCustomerId);
-  },
+export async function getUserById(id: string) {
+  const ps = await getPaymentStorage();
+  const res = await ps.getUserById(id);
+  return normalizeFirstRow(res);
+}
 
-  async linkSupabaseUser(userId: string, supabaseUserId: string | null) {
-    if (!paymentStorage || typeof paymentStorage.linkSupabaseUser !== 'function') {
-      throw new Error('storage.linkSupabaseUser not implemented');
-    }
-    return await paymentStorage.linkSupabaseUser(userId, supabaseUserId);
-  },
+export async function createUser(payload: any) {
+  const ps = await getPaymentStorage();
+  const res = await ps.createUser(payload);
+  return normalizeFirstRow(res);
+}
 
-  async updateUserPaidStatus(userId: string, data: any) {
-    if (!paymentStorage || typeof paymentStorage.updateUserPaidStatus !== 'function') {
-      throw new Error('storage.updateUserPaidStatus not implemented');
-    }
-    return await paymentStorage.updateUserPaidStatus(userId, data);
-  },
+export async function updateUserStripeCustomerId(userId: string, stripeCustomerId: string) {
+  const ps = await getPaymentStorage();
+  return await ps.updateUserStripeCustomerId(userId, stripeCustomerId);
+}
 
-  async setUserPasswordHash(userId: string, hash: string) {
-    if (!paymentStorage || typeof paymentStorage.setUserPasswordHash !== 'function') {
-      throw new Error('storage.setUserPasswordHash not implemented');
-    }
-    return await paymentStorage.setUserPasswordHash(userId, hash);
-  },
+export async function linkSupabaseUser(userId: string, supabaseUserId: string | null) {
+  const ps = await getPaymentStorage();
+  return await ps.linkSupabaseUser(userId, supabaseUserId);
+}
 
-  // ----- Password setup token -----
-  async savePasswordSetupToken(userId: string, token: string, expiresAt: string) {
-    if (!paymentStorage || typeof paymentStorage.savePasswordSetupToken !== 'function') {
-      throw new Error('storage.savePasswordSetupToken not implemented');
-    }
-    return await paymentStorage.savePasswordSetupToken(userId, token, expiresAt);
-  },
+export async function updateUserPaidStatus(userId: string, data: any) {
+  const ps = await getPaymentStorage();
+  return await ps.updateUserPaidStatus(userId, data);
+}
 
-  async findPasswordSetupByToken(token: string) {
-    if (!paymentStorage || typeof paymentStorage.findPasswordSetupByToken !== 'function') {
-      throw new Error('storage.findPasswordSetupByToken not implemented');
-    }
-    const res = await paymentStorage.findPasswordSetupByToken(token);
-    return normalizeFirstRow(res);
-  },
+export async function setUserPasswordHash(userId: string, hash: string) {
+  const ps = await getPaymentStorage();
+  return await ps.setUserPasswordHash(userId, hash);
+}
 
-  async clearPasswordSetupToken(userId: string) {
-    if (!paymentStorage || typeof paymentStorage.clearPasswordSetupToken !== 'function') {
-      throw new Error('storage.clearPasswordSetupToken not implemented');
-    }
-    return await paymentStorage.clearPasswordSetupToken(userId);
-  },
+export async function savePasswordSetupToken(userId: string, token: string, expiresAt: string) {
+  const ps = await getPaymentStorage();
+  return await ps.savePasswordSetupToken(userId, token, expiresAt);
+}
 
-  // ----- Payments/subscriptions -----
-  async recordPayment(paymentData: any) {
-    if (!paymentStorage || typeof paymentStorage.recordPayment !== 'function') {
-      throw new Error('storage.recordPayment not implemented');
-    }
-    return await paymentStorage.recordPayment(paymentData);
-  },
+export async function findPasswordSetupByToken(token: string) {
+  const ps = await getPaymentStorage();
+  const res = await ps.findPasswordSetupByToken(token);
+  return normalizeFirstRow(res);
+}
 
-  async upsertSubscription(sub: any) {
-    if (!paymentStorage || typeof paymentStorage.upsertSubscription !== 'function') {
-      throw new Error('storage.upsertSubscription not implemented');
-    }
-    return await paymentStorage.upsertSubscription(sub);
-  },
+export async function clearPasswordSetupToken(userId: string) {
+  const ps = await getPaymentStorage();
+  return await ps.clearPasswordSetupToken(userId);
+}
+
+export async function recordPayment(paymentData: any) {
+  const ps = await getPaymentStorage();
+  return await ps.recordPayment(paymentData);
+}
+
+export async function upsertSubscription(sub: any) {
+  const ps = await getPaymentStorage();
+  return await ps.upsertSubscription(sub);
+}
+
+/* Default export (keeps compatibility with `import storage from './storage'`) */
+const storage = {
+  getUserByEmail,
+  getUserById,
+  createUser,
+  updateUserStripeCustomerId,
+  linkSupabaseUser,
+  updateUserPaidStatus,
+  setUserPasswordHash,
+  savePasswordSetupToken,
+  findPasswordSetupByToken,
+  clearPasswordSetupToken,
+  recordPayment,
+  upsertSubscription,
 };
 
-export const storage = impl;
-export default impl;
+export default storage;
