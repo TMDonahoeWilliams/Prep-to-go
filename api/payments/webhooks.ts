@@ -2,121 +2,135 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Stripe from 'stripe';
 import crypto from 'crypto';
 
-// NOTE: adapt the import path to your storage helpers. We dynamically import so Vercel finds the compiled .js.
-async function importPaymentStorage() {
-  try {
-    return await import('../../server/payments.js');
-  } catch {
-    return await import('../../server/payments');
-  }
+// Simple email sender stub — replace with SendGrid/SES implementation
+async function sendPasswordSetupEmail(toEmail: string, setupUrl: string) {
+  console.log(`Send password setup email to ${toEmail}: ${setupUrl}`);
+  // TODO: integrate real email provider here
 }
 
-// Placeholder: implement your own email sender (SendGrid, SES, etc.)
-async function sendPasswordSetupEmail(toEmail: string, setupUrl: string) {
-  // TODO: integrate with your email provider
-  console.log(`Send password setup email to ${toEmail}: ${setupUrl}`);
+function rawBodyFromRequest(req: VercelRequest) {
+  // Vercel sometimes provides parsed body; Stripe expects raw payload for signature verification.
+  if (typeof req.body === 'string') return req.body;
+  try {
+    return JSON.stringify(req.body);
+  } catch {
+    return '';
+  }
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Only POST and Stripe requires raw body for signature verification. Vercel's req.body may be parsed;
-  // with @vercel/node you may need to access raw body differently. Ensure Stripe signature verification is done against raw bytes.
-  // If your deployment uses express endpoints (server/routes.ts), apply same logic there.
-  if (req.method !== 'POST') return res.status(405).json({ message: 'Method not allowed' });
+  if (req.method !== 'POST') return res.status(405).send('Method not allowed');
 
-  const stripeSecret = process.env.STRIPE_WEBHOOK_SECRET;
-  if (!stripeSecret) {
-    console.error('Stripe webhook secret not configured');
-    return res.status(500).send('Webhook secret not configured');
+  const secret = process.env.STRIPE_WEBHOOK_SECRET;
+  if (!secret) {
+    console.error('STRIPE_WEBHOOK_SECRET not set');
+    return res.status(500).send('Webhook not configured');
   }
 
-  // In Vercel Functions we often don't have raw body available — the Stripe CLI can be used to test locally.
-  // If you have access to raw body, use it. Otherwise for hosted express, use express.raw middleware.
-  const sig = req.headers['stripe-signature'] as string | undefined;
-  const payload = req.body;
+  // Dynamic import paymentStorage and Stripe
+  let paymentsModule: any;
+  try {
+    paymentsModule = await import('../../server/payments.js');
+  } catch {
+    paymentsModule = await import('../../server/payments');
+  }
+  const { paymentStorage } = paymentsModule;
 
-  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', { apiVersion: '2024-11-20.acacia' });
+  const stripeSecret = process.env.STRIPE_SECRET_KEY;
+  if (!stripeSecret) {
+    console.error('STRIPE_SECRET_KEY not set');
+    return res.status(500).send('Stripe not configured');
+  }
+  const stripe = new Stripe(stripeSecret, { apiVersion: '2024-11-20' as any });
+
+  const sig = (req.headers['stripe-signature'] || '') as string;
+  const rawBody = rawBodyFromRequest(req);
 
   let event: Stripe.Event;
   try {
-    // If req.body is a string raw payload:
-    const rawBody = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
-    event = stripe.webhooks.constructEvent(rawBody, sig || '', stripeSecret);
+    event = stripe.webhooks.constructEvent(rawBody, sig, secret);
   } catch (err: any) {
     console.error('Webhook signature verification failed:', err?.message || err);
     return res.status(400).send(`Webhook Error: ${err?.message || err}`);
   }
 
   try {
-    const { paymentStorage } = await importPaymentStorage();
-
     if (event.type === 'payment_intent.succeeded') {
       const pi = event.data.object as Stripe.PaymentIntent;
-      const metadata: any = (pi.metadata || {});
+      const metadata: any = pi.metadata || {};
+      const userIdMeta = metadata.userId;
+      const userEmail = metadata.userEmail || (pi.receipt_email as string | undefined);
 
-      const userEmail: string | undefined = metadata.userEmail || (pi.receipt_email as string | undefined);
-      const userIdFromMetadata: string | undefined = metadata.userId;
-
-      // Find or create provisional user in your DB
-      let userRecord: any = null;
-      if (userIdFromMetadata) {
-        const found = await paymentStorage.getUserById(userIdFromMetadata);
-        if (Array.isArray(found)) userRecord = found[0];
-        else userRecord = found;
+      // Find user by metadata.userId or email
+      let user = null;
+      if (userIdMeta && paymentStorage.getUserById) {
+        const found = await paymentStorage.getUserById(userIdMeta);
+        user = Array.isArray(found) ? found[0] : found;
       }
-
-      if (!userRecord && userEmail) {
+      if (!user && userEmail && paymentStorage.getUserByEmail) {
         const found = await paymentStorage.getUserByEmail(userEmail);
-        userRecord = Array.isArray(found) ? found[0] : found;
+        user = Array.isArray(found) ? found[0] : found;
       }
 
-      if (!userRecord) {
-        // Create provisional user (no password). Mark needsPasswordSetup=true so they must finalize.
-        userRecord = await paymentStorage.createUser({
-          email: userEmail || '',
-          role: 'student',
-          emailVerified: false,
-          needsPasswordSetup: true,
-          createdAt: new Date().toISOString(),
-        });
-        console.log('Created provisional user for payment', userRecord?.id || '(no id)');
+      if (!user) {
+        // Create provisional user as fallback
+        if (paymentStorage.createUser) {
+          user = await paymentStorage.createUser({
+            email: userEmail || '',
+            role: 'student',
+            emailVerified: false,
+            needsPasswordSetup: true,
+            createdAt: new Date().toISOString(),
+          });
+          user = Array.isArray(user) ? user[0] : user;
+          console.log('Webhook: created provisional user', user?.id);
+        } else {
+          console.warn('Webhook: no storage.createUser available; skipping user creation');
+        }
       }
 
       // Record payment
-      await paymentStorage.recordPayment({
-        userId: userRecord?.id ?? null,
-        stripePaymentIntentId: pi.id,
-        amount: pi.amount ?? 0,
-        currency: pi.currency ?? 'usd',
-        status: 'succeeded',
-        description: pi.description ?? 'Prep-to-go purchase',
-        createdAt: new Date().toISOString(),
-      });
+      if (paymentStorage.recordPayment) {
+        await paymentStorage.recordPayment({
+          userId: user?.id ?? null,
+          stripePaymentIntentId: pi.id,
+          amount: pi.amount ?? 0,
+          currency: pi.currency ?? 'usd',
+          status: 'succeeded',
+          description: pi.description ?? null,
+          createdAt: new Date().toISOString(),
+        });
+      }
 
       // Upsert subscription / grant access
-      await paymentStorage.upsertSubscription({
-        userId: userRecord.id,
-        status: 'active',
-        planType: metadata.priceId ?? 'basic',
-        stripeSubscriptionId: null,
-        currentPeriodStart: new Date().toISOString(),
-        currentPeriodEnd: null,
-      });
+      if (paymentStorage.upsertSubscription) {
+        await paymentStorage.upsertSubscription({
+          userId: user.id,
+          status: 'active',
+          planType: metadata.priceId ?? 'lifetime',
+          stripeSubscriptionId: null,
+          currentPeriodStart: new Date().toISOString(),
+          currentPeriodEnd: null,
+        });
+      }
 
-      // Mark user paid
-      await paymentStorage.updateUserPaidStatus(userRecord.id, {
-        hasPaidAccess: true,
-        paidAt: new Date().toISOString(),
-      });
+      // Mark user as paid
+      if (paymentStorage.updateUserPaidStatus) {
+        await paymentStorage.updateUserPaidStatus(user.id, {
+          hasPaidAccess: true,
+          paidAt: new Date().toISOString(),
+        });
+      }
 
-      // Generate password-setup token (only if user still needs password)
-      if (userRecord.needsPasswordSetup) {
+      // Save password-setup token and email user
+      if (user && paymentStorage.savePasswordSetupToken) {
         const token = crypto.randomBytes(32).toString('hex');
-        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
-        await paymentStorage.savePasswordSetupToken(userRecord.id, token, expiresAt.toISOString());
+        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+        await paymentStorage.savePasswordSetupToken(user.id, token, expiresAt.toISOString());
 
-        const appBase = process.env.APP_BASE_URL || 'https://yourdomain.com';
+        const appBase = process.env.APP_BASE_URL || 'https://your-app.example.com';
         const setupUrl = `${appBase}/complete-setup?token=${token}`;
-        await sendPasswordSetupEmail(userRecord.email, setupUrl);
+        await sendPasswordSetupEmail(user.email, setupUrl);
       }
 
       return res.status(200).send('ok');
