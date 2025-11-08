@@ -40,7 +40,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Dynamic import of your server storage/auth helpers so Vercel resolves compiled modules correctly
-    let storageModule: any;
+    let storageModule: any = null;
     try {
       storageModule = await import('../../server/storage.js');
     } catch (errJs) {
@@ -54,7 +54,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Attempt to validate credentials against your DB user store if available
     let user: any = null;
-    if (storageModule && storageModule.getUserByEmail) {
+    if (storageModule && typeof storageModule.getUserByEmail === 'function') {
       try {
         const found = await storageModule.getUserByEmail(email);
         user = Array.isArray(found) ? found[0] : found;
@@ -62,11 +62,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         console.error('storage.getUserByEmail error:', err);
         // continue; will return auth failure below
       }
+    } else {
+      console.warn('storageModule.getUserByEmail not available; login handler will not validate local password');
     }
 
-    // If storage is available and user found, validate password hash
+    // If user found in local storage, validate password
     if (user) {
-      const passwordHash = user.passwordHash || user.password_hash || user.password; // accomodate different naming
+      const passwordHash = user.passwordHash || user.password_hash || user.password; // accommodate different naming
       if (!passwordHash) {
         // no local password stored — cannot authenticate here
         return res.status(400).json({
@@ -82,9 +84,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
       }
     } else {
-      // Storage not available or user not found. We do not attempt to sign in here.
-      // If your app uses Supabase for auth (recommended), the client-side should call Supabase signIn
-      // and then exchange token with the server. Return an instructive message to the client.
+      // Storage not available or user not found.
+      // If you rely on Supabase auth, instruct the client to use Supabase sign-in and token exchange.
       return res.status(401).json({
         success: false,
         error: {
