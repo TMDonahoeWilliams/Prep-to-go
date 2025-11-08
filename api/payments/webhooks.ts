@@ -2,16 +2,17 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Stripe from 'stripe';
 import crypto from 'crypto';
 
-// Simple email sender stub — replace with SendGrid/SES implementation
+// Replace with real email provider implementation for production
 async function sendPasswordSetupEmail(toEmail: string, setupUrl: string) {
-  console.log(`Send password setup email to ${toEmail}: ${setupUrl}`);
-  // TODO: integrate real email provider here
+  console.log(`(stub) send password setup email to ${toEmail}: ${setupUrl}`);
+  // integrate SendGrid, SES, etc. here
 }
 
+// Read raw body for Stripe signature verification
 function rawBodyFromRequest(req: VercelRequest) {
-  // Vercel sometimes provides parsed body; Stripe expects raw payload for signature verification.
   if (typeof req.body === 'string') return req.body;
   try {
+    // Vercel may parse; reconstruct raw body
     return JSON.stringify(req.body);
   } catch {
     return '';
@@ -21,34 +22,38 @@ function rawBodyFromRequest(req: VercelRequest) {
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).send('Method not allowed');
 
-  const secret = process.env.STRIPE_WEBHOOK_SECRET;
-  if (!secret) {
-    console.error('STRIPE_WEBHOOK_SECRET not set');
-    return res.status(500).send('Webhook not configured');
-  }
-
-  // Dynamic import paymentStorage and Stripe
-  let paymentsModule: any;
-  try {
-    paymentsModule = await import('../../server/payments.js');
-  } catch {
-    paymentsModule = await import('../../server/payments');
-  }
-  const { paymentStorage } = paymentsModule;
-
   const stripeSecret = process.env.STRIPE_SECRET_KEY;
-  if (!stripeSecret) {
-    console.error('STRIPE_SECRET_KEY not set');
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  if (!stripeSecret || !webhookSecret) {
+    console.error('Stripe env missing');
     return res.status(500).send('Stripe not configured');
   }
   const stripe = new Stripe(stripeSecret, { apiVersion: '2024-11-20' as any });
+
+  // Load paymentStorage
+  let paymentsModule: any = null;
+  try {
+    paymentsModule = await import('../../server/payments.js');
+  } catch (e1) {
+    try {
+      paymentsModule = await import('../../server/payments');
+    } catch (e2) {
+      console.error('Could not import server payments module:', e1, e2);
+      return res.status(500).send('Server storage not available');
+    }
+  }
+  const paymentStorage = paymentsModule?.paymentStorage ?? paymentsModule?.default ?? paymentsModule;
+  if (!paymentStorage) {
+    console.error('paymentStorage not found');
+    return res.status(500).send('Server storage not available');
+  }
 
   const sig = (req.headers['stripe-signature'] || '') as string;
   const rawBody = rawBodyFromRequest(req);
 
   let event: Stripe.Event;
   try {
-    event = stripe.webhooks.constructEvent(rawBody, sig, secret);
+    event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
   } catch (err: any) {
     console.error('Webhook signature verification failed:', err?.message || err);
     return res.status(400).send(`Webhook Error: ${err?.message || err}`);
@@ -61,36 +66,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const userIdMeta = metadata.userId;
       const userEmail = metadata.userEmail || (pi.receipt_email as string | undefined);
 
-      // Find user by metadata.userId or email
-      let user = null;
-      if (userIdMeta && paymentStorage.getUserById) {
+      // Find or create user
+      let user: any = null;
+      if (userIdMeta && typeof paymentStorage.getUserById === 'function') {
         const found = await paymentStorage.getUserById(userIdMeta);
         user = Array.isArray(found) ? found[0] : found;
       }
-      if (!user && userEmail && paymentStorage.getUserByEmail) {
+      if (!user && userEmail && typeof paymentStorage.getUserByEmail === 'function') {
         const found = await paymentStorage.getUserByEmail(userEmail);
         user = Array.isArray(found) ? found[0] : found;
       }
 
       if (!user) {
-        // Create provisional user as fallback
-        if (paymentStorage.createUser) {
-          user = await paymentStorage.createUser({
-            email: userEmail || '',
+        if (typeof paymentStorage.createUser === 'function') {
+          const created = await paymentStorage.createUser({
+            email: userEmail ?? '',
             role: 'student',
             emailVerified: false,
             needsPasswordSetup: true,
             createdAt: new Date().toISOString(),
           });
-          user = Array.isArray(user) ? user[0] : user;
+          user = Array.isArray(created) ? created[0] : created;
           console.log('Webhook: created provisional user', user?.id);
         } else {
-          console.warn('Webhook: no storage.createUser available; skipping user creation');
+          console.warn('Webhook cannot create user; storage.createUser missing');
         }
       }
 
       // Record payment
-      if (paymentStorage.recordPayment) {
+      if (typeof paymentStorage.recordPayment === 'function') {
         await paymentStorage.recordPayment({
           userId: user?.id ?? null,
           stripePaymentIntentId: pi.id,
@@ -103,7 +107,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       // Upsert subscription / grant access
-      if (paymentStorage.upsertSubscription) {
+      if (typeof paymentStorage.upsertSubscription === 'function' && user) {
         await paymentStorage.upsertSubscription({
           userId: user.id,
           status: 'active',
@@ -114,8 +118,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
       }
 
-      // Mark user as paid
-      if (paymentStorage.updateUserPaidStatus) {
+      if (typeof paymentStorage.updateUserPaidStatus === 'function' && user) {
         await paymentStorage.updateUserPaidStatus(user.id, {
           hasPaidAccess: true,
           paidAt: new Date().toISOString(),
@@ -123,7 +126,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       // Save password-setup token and email user
-      if (user && paymentStorage.savePasswordSetupToken) {
+      if (user && typeof paymentStorage.savePasswordSetupToken === 'function') {
         const token = crypto.randomBytes(32).toString('hex');
         const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
         await paymentStorage.savePasswordSetupToken(user.id, token, expiresAt.toISOString());
@@ -132,12 +135,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const setupUrl = `${appBase}/complete-setup?token=${token}`;
         await sendPasswordSetupEmail(user.email, setupUrl);
       }
-
-      return res.status(200).send('ok');
     }
 
-    // handle other event types as needed
-    return res.status(200).send('ignored');
+    // Respond to all events
+    return res.status(200).send('ok');
   } catch (err: any) {
     console.error('Webhook processing error:', err);
     return res.status(500).send('Internal error');
