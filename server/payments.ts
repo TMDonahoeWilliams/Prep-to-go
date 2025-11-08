@@ -1,110 +1,242 @@
-// Storage/payment helper module
-// Provides helpers used by API routes. Adjust queries to your DB/query builder if needed.
+// https://github.com/TMDonahoeWilliams/Prep-to-go/blob/main/server/payments.ts
+/**
+ * paymentStorage helper (server/payments.ts)
+ *
+ * - Dynamically loads ./db/index and ./db/schema (tries .js then .ts) to avoid
+ *   directory import / ESM resolution problems on Vercel.
+ * - Exports `paymentStorage` (named + default) so other modules can import it.
+ *
+ * IMPORTANT:
+ * - Replace the placeholder `ensureDb()` / `ensureSchema()` stubs by wiring to your real DB client/schema.
+ * - This file intentionally avoids throwing at module import time; errors appear when a storage method is invoked,
+ *   and they include clear instructions in the logs.
+ */
 
-import { db } from './db'; // adjust per your project
-import { users, payments, subscriptions } from './db/schema'; // adjust per your schema definitions
+type DbModule = { db?: any } | null;
+type SchemaModule = { users?: any; payments?: any; subscriptions?: any } | null;
+
+let cachedDbModule: DbModule | undefined = undefined;
+let cachedSchemaModule: SchemaModule | undefined = undefined;
+
+async function loadDbModule(): Promise<DbModule> {
+  if (cachedDbModule !== undefined) return cachedDbModule;
+  try {
+    const m = await import('./db/index.js');
+    cachedDbModule = (m as DbModule) || null;
+    return cachedDbModule;
+  } catch (errJs) {
+    try {
+      const m = await import('./db/index');
+      cachedDbModule = (m as DbModule) || null;
+      return cachedDbModule;
+    } catch (errTs) {
+      console.error('Could not import server/db/index (tried .js and .ts):', errJs, errTs);
+      cachedDbModule = null;
+      return null;
+    }
+  }
+}
+
+async function loadSchemaModule(): Promise<SchemaModule> {
+  if (cachedSchemaModule !== undefined) return cachedSchemaModule;
+  try {
+    const m = await import('./db/schema.js');
+    cachedSchemaModule = (m as SchemaModule) || null;
+    return cachedSchemaModule;
+  } catch (errJs) {
+    try {
+      const m = await import('./db/schema');
+      cachedSchemaModule = (m as SchemaModule) || null;
+      return cachedSchemaModule;
+    } catch (errTs) {
+      console.error('Could not import server/db/schema (tried .js and .ts):', errJs, errTs);
+      cachedSchemaModule = null;
+      return null;
+    }
+  }
+}
+
+function notReadyError(feature: string) {
+  return new Error(
+    `Database not configured for payments.${feature}. Ensure you have implemented server/db (index.ts) and server/db/schema.ts and that they are included in the build output.`
+  );
+}
+
+function normalizeFirstRow(result: any) {
+  if (!result) return null;
+  if (Array.isArray(result)) return result.length > 0 ? result[0] : null;
+  return result;
+}
 
 export const paymentStorage = {
-  // ----- Users -----
   async getUserByEmail(email: string) {
-    return await db.select().from(users).where(users.email.eq(email)).limit(1);
+    const mod = await loadDbModule();
+    const schema = await loadSchemaModule();
+    if (!mod || !mod.db || !schema) {
+      throw notReadyError('getUserByEmail');
+    }
+
+    // Adapt these queries to your DB client; this is a placeholder showing intent
+    try {
+      // Example for a query builder: return await db.select().from(users).where(eq(users.email, email)).limit(1)
+      const usersTable = schema.users;
+      if (!usersTable) throw new Error('users schema not found');
+      // Replace with your real query:
+      return await mod.db.getUserByEmail(email); // your DB should implement this helper
+    } catch (err) {
+      console.error('getUserByEmail error:', err);
+      throw err;
+    }
   },
 
   async getUserById(id: string) {
-    return await db.select().from(users).where(users.id.eq(id)).limit(1);
+    const mod = await loadDbModule();
+    const schema = await loadSchemaModule();
+    if (!mod || !mod.db || !schema) {
+      throw notReadyError('getUserById');
+    }
+    try {
+      return await mod.db.getUserById(id);
+    } catch (err) {
+      console.error('getUserById error:', err);
+      throw err;
+    }
   },
 
   async createUser(payload: any) {
-    // payload fields: email, role, emailVerified, needsPasswordSetup, firstName, lastName, createdAt
-    return await db.insert(users).values({
-      email: payload.email,
-      role: payload.role ?? 'student',
-      email_verified: payload.emailVerified ?? false,
-      needs_password_setup: payload.needsPasswordSetup ?? false,
-      first_name: payload.firstName ?? null,
-      last_name: payload.lastName ?? null,
-      created_at: payload.createdAt ?? new Date().toISOString(),
-    }).returning();
+    const mod = await loadDbModule();
+    const schema = await loadSchemaModule();
+    if (!mod || !mod.db || !schema) {
+      throw notReadyError('createUser');
+    }
+    try {
+      return await mod.db.createUser(payload);
+    } catch (err) {
+      console.error('createUser error:', err);
+      throw err;
+    }
   },
 
   async updateUserStripeCustomerId(userId: string, stripeCustomerId: string) {
-    return await db.update(users).set({ stripe_customer_id: stripeCustomerId }).where(users.id.eq(userId));
+    const mod = await loadDbModule();
+    if (!mod || !mod.db) throw notReadyError('updateUserStripeCustomerId');
+    try {
+      return await mod.db.updateUserStripeCustomerId(userId, stripeCustomerId);
+    } catch (err) {
+      console.error('updateUserStripeCustomerId error:', err);
+      throw err;
+    }
   },
 
   async linkSupabaseUser(userId: string, supabaseUserId: string | null) {
-    return await db.update(users).set({ supabase_user_id: supabaseUserId }).where(users.id.eq(userId));
+    const mod = await loadDbModule();
+    if (!mod || !mod.db) throw notReadyError('linkSupabaseUser');
+    try {
+      return await mod.db.linkSupabaseUser(userId, supabaseUserId);
+    } catch (err) {
+      console.error('linkSupabaseUser error:', err);
+      throw err;
+    }
   },
 
-  async updateUserPaidStatus(userId: string, data: { hasPaidAccess?: boolean; paidAt?: string }) {
-    const updates: any = {};
-    if (typeof data.hasPaidAccess !== 'undefined') updates.has_paid_access = data.hasPaidAccess;
-    if (data.paidAt) updates.paid_at = data.paidAt;
-    return await db.update(users).set(updates).where(users.id.eq(userId));
+  async updateUserPaidStatus(userId: string, data: any) {
+    const mod = await loadDbModule();
+    if (!mod || !mod.db) throw notReadyError('updateUserPaidStatus');
+    try {
+      return await mod.db.updateUserPaidStatus(userId, data);
+    } catch (err) {
+      console.error('updateUserPaidStatus error:', err);
+      throw err;
+    }
   },
 
-  async setUserPasswordHash(userId: string, passwordHash: string) {
-    return await db.update(users).set({ password_hash: passwordHash }).where(users.id.eq(userId));
+  async setUserPasswordHash(userId: string, hash: string) {
+    const mod = await loadDbModule();
+    if (!mod || !mod.db) throw notReadyError('setUserPasswordHash');
+    try {
+      return await mod.db.setUserPasswordHash(userId, hash);
+    } catch (err) {
+      console.error('setUserPasswordHash error:', err);
+      throw err;
+    }
   },
 
-  // ----- Password setup token -----
   async savePasswordSetupToken(userId: string, token: string, expiresAt: string) {
-    return await db.update(users).set({
-      password_setup_token: token,
-      password_setup_token_expires_at: expiresAt,
-    }).where(users.id.eq(userId));
+    const mod = await loadDbModule();
+    if (!mod || !mod.db) throw notReadyError('savePasswordSetupToken');
+    try {
+      return await mod.db.savePasswordSetupToken(userId, token, expiresAt);
+    } catch (err) {
+      console.error('savePasswordSetupToken error:', err);
+      throw err;
+    }
   },
 
   async findPasswordSetupByToken(token: string) {
-    return await db.select().from(users).where(users.password_setup_token.eq(token)).limit(1);
+    const mod = await loadDbModule();
+    if (!mod || !mod.db) throw notReadyError('findPasswordSetupByToken');
+    try {
+      const res = await mod.db.findPasswordSetupByToken(token);
+      return normalizeFirstRow(res);
+    } catch (err) {
+      console.error('findPasswordSetupByToken error:', err);
+      throw err;
+    }
   },
 
   async clearPasswordSetupToken(userId: string) {
-    return await db.update(users).set({
-      password_setup_token: null,
-      password_setup_token_expires_at: null,
-      needs_password_setup: false,
-      email_verified: true,
-    }).where(users.id.eq(userId));
+    const mod = await loadDbModule();
+    if (!mod || !mod.db) throw notReadyError('clearPasswordSetupToken');
+    try {
+      return await mod.db.clearPasswordSetupToken(userId);
+    } catch (err) {
+      console.error('clearPasswordSetupToken error:', err);
+      throw err;
+    }
   },
 
-  // ----- Payments / Subscriptions -----
   async recordPayment(paymentData: any) {
-    return await db.insert(payments).values(paymentData).returning();
+    const mod = await loadDbModule();
+    if (!mod || !mod.db) throw notReadyError('recordPayment');
+    try {
+      return await mod.db.recordPayment(paymentData);
+    } catch (err) {
+      console.error('recordPayment error:', err);
+      throw err;
+    }
   },
 
   async upsertSubscription(sub: any) {
-    // simplistic upsert: try update where userId/planType matches, otherwise insert
-    const existing = await db.select().from(subscriptions).where(subscriptions.userId.eq(sub.userId)).limit(1);
-    if (existing && existing.length > 0) {
-      return await db.update(subscriptions).set({
-        status: sub.status,
-        plan_type: sub.planType,
-        stripe_subscription_id: sub.stripeSubscriptionId,
-        current_period_start: sub.currentPeriodStart,
-        current_period_end: sub.currentPeriodEnd,
-        cancel_at_period_end: sub.cancelAtPeriodEnd ?? false,
-      }).where(subscriptions.userId.eq(sub.userId));
-    } else {
-      return await db.insert(subscriptions).values({
-        user_id: sub.userId,
-        status: sub.status,
-        plan_type: sub.planType,
-        stripe_subscription_id: sub.stripeSubscriptionId,
-        current_period_start: sub.currentPeriodStart,
-        current_period_end: sub.currentPeriodEnd,
-        cancel_at_period_end: sub.cancelAtPeriodEnd ?? false,
-        created_at: new Date().toISOString(),
-      }).returning();
+    const mod = await loadDbModule();
+    if (!mod || !mod.db) throw notReadyError('upsertSubscription');
+    try {
+      return await mod.db.upsertSubscription(sub);
+    } catch (err) {
+      console.error('upsertSubscription error:', err);
+      throw err;
     }
   },
 
   async getUserSubscription(userId: string) {
-    return await db.select().from(subscriptions).where(subscriptions.userId.eq(userId)).limit(1);
+    const mod = await loadDbModule();
+    if (!mod || !mod.db) throw notReadyError('getUserSubscription');
+    try {
+      return await mod.db.getUserSubscription(userId);
+    } catch (err) {
+      console.error('getUserSubscription error:', err);
+      throw err;
+    }
   },
 
   async hasUserPaidAccess(userId: string) {
-    const subs = await this.getUserSubscription(userId);
-    return subs && subs.length > 0;
+    const mod = await loadDbModule();
+    if (!mod || !mod.db) throw notReadyError('hasUserPaidAccess');
+    try {
+      return await mod.db.hasUserPaidAccess(userId);
+    } catch (err) {
+      console.error('hasUserPaidAccess error:', err);
+      throw err;
+    }
   },
 };
 
