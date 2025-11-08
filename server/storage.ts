@@ -1,357 +1,123 @@
-import {
-  users,
-  categories,
-  tasks,
-  documents,
-  studentInvitations,
-  parentStudentRelations,
-  type User,
-  type UpsertUser,
-  type Category,
-  type InsertCategory,
-  type Task,
-  type InsertTask,
-  type Document,
-  type InsertDocument,
-  type StudentInvitation,
-  type UpsertStudentInvitation,
-  type ParentStudentRelation,
-  type UpsertParentStudentRelation,
-} from "@shared/schema";
-import { db } from "./db";
-import { eq, and, desc, asc, lt } from "drizzle-orm";
+/**
+ * storage.ts
+ *
+ * Provides a stable set of storage helper functions (getUserByEmail, createUser, etc.)
+ * that delegate to the paymentStorage implementation in server/payments.ts.
+ *
+ * This replaces imports that used the '@shared/schema' alias and ensures the runtime
+ * can import server/storage directly (relative path), avoiding module resolution errors on Vercel.
+ *
+ * If you have a different storage module or ORM, adapt these delegates to call into your real data layer.
+ */
 
-export interface IStorage {
-  // User operations
-  getUser(id: string): Promise<User | undefined>;
-  getUserById(id: string): Promise<User | undefined>;
-  getUserByEmail(email: string): Promise<User | undefined>;
-  createUser(user: UpsertUser): Promise<User>;
-  upsertUser(user: UpsertUser): Promise<User>;
-  updateUserRole(id: string, role: string): Promise<User | undefined>;
-  
-  // Student invitation operations
-  createStudentInvitation(invitation: {
-    parentId: string;
-    studentEmail: string;
-    studentFirstName: string;
-    studentLastName: string;
-  }): Promise<any>;
-  getPendingInvitation(parentId: string, studentEmail: string): Promise<any>;
-  getInvitationByToken(token: string): Promise<any>;
-  getInvitationsForParent(parentId: string): Promise<any[]>;
-  updateInvitationStatus(invitationId: string, status: string): Promise<void>;
-  
-  // Parent-Student relationship operations
-  createParentStudentRelation(relation: {
-    parentId: string;
-    studentId: string;
-  }): Promise<any>;
-  getStudentsForParent(parentId: string): Promise<User[]>;
-  
-  // Category operations
-  getCategories(): Promise<Category[]>;
-  getCategoryById(id: string): Promise<Category | undefined>;
-  createCategory(category: InsertCategory): Promise<Category>;
-  
-  // Task operations
-  getUserTasks(userId: string): Promise<Task[]>;
-  getUserTasksWithCategories(userId: string): Promise<Array<Task & { category: Category | null }>>;
-  getTaskById(userId: string, taskId: string): Promise<Task | undefined>;
-  createTask(task: InsertTask): Promise<Task>;
-  updateTask(userId: string, taskId: string, updates: Partial<InsertTask>): Promise<Task | undefined>;
-  deleteTask(userId: string, taskId: string): Promise<boolean>;
-  getTaskStats(userId: string): Promise<{
-    totalTasks: number;
-    completedTasks: number;
-    overdueTasks: number;
-    upcomingTasks: number;
-  }>;
-  
-  // Document operations
-  getUserDocuments(userId: string): Promise<Document[]>;
-  getDocumentById(userId: string, documentId: string): Promise<Document | undefined>;
-  createDocument(document: InsertDocument): Promise<Document>;
-  updateDocument(userId: string, documentId: string, updates: Partial<InsertDocument>): Promise<Document | undefined>;
-  deleteDocument(userId: string, documentId: string): Promise<boolean>;
+import paymentStorage from './payments';
+
+async function normalizeFirstRow(result: any) {
+  if (!result) return null;
+  if (Array.isArray(result)) return result.length > 0 ? result[0] : null;
+  return result;
 }
 
-export class DatabaseStorage implements IStorage {
-  // User operations
-  async getUser(id: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.id, id));
-    return user;
+export async function getUserByEmail(email: string) {
+  if (!paymentStorage || typeof paymentStorage.getUserByEmail !== 'function') {
+    throw new Error('storage.getUserByEmail not implemented');
   }
-
-  async getUserById(id: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.id, id));
-    return user;
-  }
-
-  async getUserByEmail(email: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.email, email));
-    return user;
-  }
-
-  async createUser(userData: UpsertUser): Promise<User> {
-    const [user] = await db
-      .insert(users)
-      .values(userData)
-      .returning();
-    return user;
-  }
-
-  async upsertUser(userData: UpsertUser): Promise<User> {
-    const [user] = await db
-      .insert(users)
-      .values(userData)
-      .onConflictDoUpdate({
-        target: users.id,
-        set: {
-          ...userData,
-          updatedAt: new Date(),
-        },
-      })
-      .returning();
-    return user;
-  }
-
-  async updateUserRole(id: string, role: string): Promise<User | undefined> {
-    const [user] = await db
-      .update(users)
-      .set({ role, updatedAt: new Date() })
-      .where(eq(users.id, id))
-      .returning();
-    return user;
-  }
-
-  // Category operations
-  async getCategories(): Promise<Category[]> {
-    return await db.select().from(categories).orderBy(asc(categories.sortOrder));
-  }
-
-  async getCategoryById(id: string): Promise<Category | undefined> {
-    const [category] = await db.select().from(categories).where(eq(categories.id, id));
-    return category;
-  }
-
-  async createCategory(categoryData: InsertCategory): Promise<Category> {
-    const [category] = await db.insert(categories).values(categoryData).returning();
-    return category;
-  }
-
-  // Task operations
-  async getUserTasks(userId: string): Promise<Task[]> {
-    return await db
-      .select()
-      .from(tasks)
-      .where(eq(tasks.userId, userId))
-      .orderBy(desc(tasks.createdAt));
-  }
-
-  async getUserTasksWithCategories(userId: string): Promise<Array<Task & { category: Category | null }>> {
-    const results = await db
-      .select({
-        task: tasks,
-        category: categories,
-      })
-      .from(tasks)
-      .leftJoin(categories, eq(tasks.categoryId, categories.id))
-      .where(eq(tasks.userId, userId))
-      .orderBy(desc(tasks.createdAt));
-
-    return results.map(({ task, category }) => ({
-      ...task,
-      category,
-    }));
-  }
-
-  async getTaskById(userId: string, taskId: string): Promise<Task | undefined> {
-    const [task] = await db
-      .select()
-      .from(tasks)
-      .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)));
-    return task;
-  }
-
-  async createTask(taskData: InsertTask): Promise<Task> {
-    const [task] = await db.insert(tasks).values(taskData).returning();
-    return task;
-  }
-
-  async updateTask(userId: string, taskId: string, updates: Partial<InsertTask>): Promise<Task | undefined> {
-    const [task] = await db
-      .update(tasks)
-      .set({ ...updates, updatedAt: new Date() })
-      .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)))
-      .returning();
-    return task;
-  }
-
-  async deleteTask(userId: string, taskId: string): Promise<boolean> {
-    const result = await db
-      .delete(tasks)
-      .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)));
-    return result.rowCount ? result.rowCount > 0 : false;
-  }
-
-  async getTaskStats(userId: string): Promise<{
-    totalTasks: number;
-    completedTasks: number;
-    overdueTasks: number;
-    upcomingTasks: number;
-  }> {
-    const userTasks = await this.getUserTasks(userId);
-    const now = new Date();
-    const weekFromNow = new Date();
-    weekFromNow.setDate(weekFromNow.getDate() + 7);
-
-    return {
-      totalTasks: userTasks.length,
-      completedTasks: userTasks.filter(t => t.status === 'completed').length,
-      overdueTasks: userTasks.filter(t => 
-        t.dueDate && 
-        new Date(t.dueDate) < now && 
-        t.status !== 'completed'
-      ).length,
-      upcomingTasks: userTasks.filter(t => 
-        t.dueDate && 
-        new Date(t.dueDate) >= now && 
-        new Date(t.dueDate) <= weekFromNow &&
-        t.status !== 'completed'
-      ).length,
-    };
-  }
-
-  // Document operations
-  async getUserDocuments(userId: string): Promise<Document[]> {
-    return await db
-      .select()
-      .from(documents)
-      .where(eq(documents.userId, userId))
-      .orderBy(desc(documents.createdAt));
-  }
-
-  async getDocumentById(userId: string, documentId: string): Promise<Document | undefined> {
-    const [document] = await db
-      .select()
-      .from(documents)
-      .where(and(eq(documents.id, documentId), eq(documents.userId, userId)));
-    return document;
-  }
-
-  async createDocument(documentData: InsertDocument): Promise<Document> {
-    const [document] = await db.insert(documents).values(documentData).returning();
-    return document;
-  }
-
-  async updateDocument(userId: string, documentId: string, updates: Partial<InsertDocument>): Promise<Document | undefined> {
-    const [document] = await db
-      .update(documents)
-      .set({ ...updates, updatedAt: new Date() })
-      .where(and(eq(documents.id, documentId), eq(documents.userId, userId)))
-      .returning();
-    return document;
-  }
-
-  async deleteDocument(userId: string, documentId: string): Promise<boolean> {
-    const result = await db
-      .delete(documents)
-      .where(and(eq(documents.id, documentId), eq(documents.userId, userId)));
-    return result.rowCount ? result.rowCount > 0 : false;
-  }
-
-  // Student invitation operations
-  async createStudentInvitation(invitation: {
-    parentId: string;
-    studentEmail: string;
-    studentFirstName: string;
-    studentLastName: string;
-  }): Promise<StudentInvitation> {
-    const invitationToken = Math.random().toString(36).substring(2) + Date.now().toString(36);
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days from now
-    
-    const [newInvitation] = await db
-      .insert(studentInvitations)
-      .values({
-        ...invitation,
-        invitationToken,
-        expiresAt,
-        status: 'pending',
-      })
-      .returning();
-    return newInvitation;
-  }
-
-  async getPendingInvitation(parentId: string, studentEmail: string): Promise<StudentInvitation | undefined> {
-    const [invitation] = await db
-      .select()
-      .from(studentInvitations)
-      .where(
-        and(
-          eq(studentInvitations.parentId, parentId),
-          eq(studentInvitations.studentEmail, studentEmail),
-          eq(studentInvitations.status, 'pending')
-        )
-      );
-    return invitation;
-  }
-
-  async getInvitationByToken(token: string): Promise<StudentInvitation | undefined> {
-    const [invitation] = await db
-      .select()
-      .from(studentInvitations)
-      .where(eq(studentInvitations.invitationToken, token));
-    return invitation;
-  }
-
-  async getInvitationsForParent(parentId: string): Promise<StudentInvitation[]> {
-    return await db
-      .select()
-      .from(studentInvitations)
-      .where(eq(studentInvitations.parentId, parentId))
-      .orderBy(desc(studentInvitations.createdAt));
-  }
-
-  async updateInvitationStatus(invitationId: string, status: string): Promise<void> {
-    await db
-      .update(studentInvitations)
-      .set({ status })
-      .where(eq(studentInvitations.id, invitationId));
-  }
-
-  // Parent-Student relationship operations
-  async createParentStudentRelation(relation: {
-    parentId: string;
-    studentId: string;
-  }): Promise<ParentStudentRelation> {
-    const [newRelation] = await db
-      .insert(parentStudentRelations)
-      .values(relation)
-      .returning();
-    return newRelation;
-  }
-
-  async getStudentsForParent(parentId: string): Promise<User[]> {
-    const result = await db
-      .select({
-        id: users.id,
-        email: users.email,
-        firstName: users.firstName,
-        lastName: users.lastName,
-        profileImageUrl: users.profileImageUrl,
-        role: users.role,
-        emailVerified: users.emailVerified,
-        createdAt: users.createdAt,
-        updatedAt: users.updatedAt,
-        passwordHash: users.passwordHash,
-      })
-      .from(parentStudentRelations)
-      .innerJoin(users, eq(parentStudentRelations.studentId, users.id))
-      .where(eq(parentStudentRelations.parentId, parentId));
-    
-    return result;
-  }
+  const res = await paymentStorage.getUserByEmail(email);
+  return normalizeFirstRow(res);
 }
 
-export const storage = new DatabaseStorage();
+export async function getUserById(id: string) {
+  if (!paymentStorage || typeof paymentStorage.getUserById !== 'function') {
+    throw new Error('storage.getUserById not implemented');
+  }
+  const res = await paymentStorage.getUserById(id);
+  return normalizeFirstRow(res);
+}
+
+export async function createUser(payload: any) {
+  if (!paymentStorage || typeof paymentStorage.createUser !== 'function') {
+    throw new Error('storage.createUser not implemented');
+  }
+  const res = await paymentStorage.createUser(payload);
+  return normalizeFirstRow(res);
+}
+
+export async function updateUserStripeCustomerId(userId: string, stripeCustomerId: string) {
+  if (!paymentStorage || typeof paymentStorage.updateUserStripeCustomerId !== 'function') {
+    throw new Error('storage.updateUserStripeCustomerId not implemented');
+  }
+  return await paymentStorage.updateUserStripeCustomerId(userId, stripeCustomerId);
+}
+
+export async function linkSupabaseUser(userId: string, supabaseUserId: string | null) {
+  if (!paymentStorage || typeof paymentStorage.linkSupabaseUser !== 'function') {
+    throw new Error('storage.linkSupabaseUser not implemented');
+  }
+  return await paymentStorage.linkSupabaseUser(userId, supabaseUserId);
+}
+
+export async function updateUserPaidStatus(userId: string, data: any) {
+  if (!paymentStorage || typeof paymentStorage.updateUserPaidStatus !== 'function') {
+    throw new Error('storage.updateUserPaidStatus not implemented');
+  }
+  return await paymentStorage.updateUserPaidStatus(userId, data);
+}
+
+export async function setUserPasswordHash(userId: string, hash: string) {
+  if (!paymentStorage || typeof paymentStorage.setUserPasswordHash !== 'function') {
+    throw new Error('storage.setUserPasswordHash not implemented');
+  }
+  return await paymentStorage.setUserPasswordHash(userId, hash);
+}
+
+export async function savePasswordSetupToken(userId: string, token: string, expiresAt: string) {
+  if (!paymentStorage || typeof paymentStorage.savePasswordSetupToken !== 'function') {
+    throw new Error('storage.savePasswordSetupToken not implemented');
+  }
+  return await paymentStorage.savePasswordSetupToken(userId, token, expiresAt);
+}
+
+export async function findPasswordSetupByToken(token: string) {
+  if (!paymentStorage || typeof paymentStorage.findPasswordSetupByToken !== 'function') {
+    throw new Error('storage.findPasswordSetupByToken not implemented');
+  }
+  const res = await paymentStorage.findPasswordSetupByToken(token);
+  return normalizeFirstRow(res);
+}
+
+export async function clearPasswordSetupToken(userId: string) {
+  if (!paymentStorage || typeof paymentStorage.clearPasswordSetupToken !== 'function') {
+    throw new Error('storage.clearPasswordSetupToken not implemented');
+  }
+  return await paymentStorage.clearPasswordSetupToken(userId);
+}
+
+// Payments/subscriptions delegation
+export async function recordPayment(paymentData: any) {
+  if (!paymentStorage || typeof paymentStorage.recordPayment !== 'function') {
+    throw new Error('storage.recordPayment not implemented');
+  }
+  return await paymentStorage.recordPayment(paymentData);
+}
+
+export async function upsertSubscription(sub: any) {
+  if (!paymentStorage || typeof paymentStorage.upsertSubscription !== 'function') {
+    throw new Error('storage.upsertSubscription not implemented');
+  }
+  return await paymentStorage.upsertSubscription(sub);
+}
+
+export default {
+  getUserByEmail,
+  getUserById,
+  createUser,
+  updateUserStripeCustomerId,
+  linkSupabaseUser,
+  updateUserPaidStatus,
+  setUserPasswordHash,
+  savePasswordSetupToken,
+  findPasswordSetupByToken,
+  clearPasswordSetupToken,
+  recordPayment,
+  upsertSubscription,
+};
