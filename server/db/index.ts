@@ -6,7 +6,7 @@ import bcrypt from 'bcrypt';
 
 // Read test account from env; default values if not set
 const TEST_EMAIL = process.env.TEST_USER_EMAIL || 'tonya.marie.my5@gmail.com';
-const TEST_PASSWORD = process.env.TEST_USER_PASSWORD || 'testpass'; // change for dev
+const TEST_PASSWORD = process.env.TEST_USER_PASSWORD || 'testpass';
 const TEST_FIRST = process.env.TEST_USER_FIRST || 'Tonya';
 const TEST_LAST = process.env.TEST_USER_LAST || 'Donahoe';
 
@@ -43,7 +43,6 @@ const subscriptions: any[] = [];
 
 // Exported DB helper functions -- adapt these to your real DB client
 export const db = {
-  // Return an array (older code expects arrays)
   async getUserByEmail(email: string) {
     const u = users.filter((x) => String(x.email).toLowerCase() === String(email).toLowerCase());
     return u;
