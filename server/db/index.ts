@@ -1,8 +1,6 @@
-// server/db/index.ts
 // Minimal in-memory DB shim for development/testing.
-// - Provides the functions expected by server/payments.ts (getUserByEmail, createUser, recordPayment, etc.)
-// - Creates a single test user from env vars so you can test login without a real DB.
-// - IMPORTANT: Replace with your real DB implementation (Prisma/Drizzle/knex) for production.
+// Provides the functions expected by server/payments.ts and server/storage.ts.
+// IMPORTANT: Replace this with your real DB client (Prisma/Drizzle/knex) for production.
 
 import bcrypt from 'bcrypt';
 
@@ -19,29 +17,33 @@ const subscriptions: any[] = [];
 
 // Create test user with hashed password on startup
 (async () => {
-  const existing = users.find((u) => u.email === TEST_EMAIL);
-  if (!existing) {
-    const hash = await bcrypt.hash(TEST_PASSWORD, 10);
-    users.push({
-      id: 'user-dev-1',
-      email: TEST_EMAIL,
-      passwordHash: hash,
-      password_hash: hash,
-      first_name: TEST_FIRST,
-      last_name: TEST_LAST,
-      role: 'student',
-      email_verified: true,
-      needs_password_setup: false,
-      has_paid_access: false,
-      created_at: new Date().toISOString(),
-    });
-    console.log(`[dev db] Created test user ${TEST_EMAIL}`);
+  try {
+    const existing = users.find((u) => u.email === TEST_EMAIL);
+    if (!existing) {
+      const hash = await bcrypt.hash(TEST_PASSWORD, 10);
+      users.push({
+        id: 'user-dev-1',
+        email: TEST_EMAIL,
+        passwordHash: hash,
+        password_hash: hash,
+        first_name: TEST_FIRST,
+        last_name: TEST_LAST,
+        role: 'student',
+        email_verified: true,
+        needs_password_setup: false,
+        has_paid_access: false,
+        created_at: new Date().toISOString(),
+      });
+      console.log(`[dev db] Created test user ${TEST_EMAIL}`);
+    }
+  } catch (e) {
+    console.error('[dev db] initialization error', e);
   }
 })();
 
 // Exported DB helper functions -- adapt these to your real DB client
 export const db = {
-  // Return an array or result consistent with earlier code expectations
+  // Return an array (older code expects arrays)
   async getUserByEmail(email: string) {
     const u = users.filter((x) => String(x.email).toLowerCase() === String(email).toLowerCase());
     return u;
