@@ -1,6 +1,6 @@
-// Minimal placeholder schema to satisfy imports during build.
-// Replace these with your real ORM schema/table definitions (Drizzle/Prisma/etc.)
-// or re-export your actual schema implementation.
+// server/db/schema.ts
+// Minimal placeholder schema to satisfy imports during build/runtime.
+// Replace these with your real ORM/schema exports in production.
 
 export const users = {
   id: 'id',
@@ -41,7 +41,7 @@ export const subscriptions = {
   created_at: 'created_at',
 };
 
-// No-op condition helpers — these are placeholders. Replace with ORM-specific helpers.
+// Export small helper placeholders (used by some ORMs). Replace with real implementations.
 export function eq(/* column: any, value: any */) {
   return null as any;
 }
