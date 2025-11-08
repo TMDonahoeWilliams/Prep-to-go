@@ -1,4 +1,3 @@
-// https://github.com/TMDonahoeWilliams/Prep-to-go/blob/main/server/payments.ts
 /**
  * paymentStorage helper (server/payments.ts)
  *
@@ -7,9 +6,8 @@
  * - Exports `paymentStorage` (named + default) so other modules can import it.
  *
  * IMPORTANT:
- * - Replace the placeholder `ensureDb()` / `ensureSchema()` stubs by wiring to your real DB client/schema.
- * - This file intentionally avoids throwing at module import time; errors appear when a storage method is invoked,
- *   and they include clear instructions in the logs.
+ * - Replace the placeholder db implementation with your real DB client/schema for production.
+ * - The current implementation delegates to server/db/index.ts (the shim) if present.
  */
 
 type DbModule = { db?: any } | null;
@@ -68,21 +66,16 @@ function normalizeFirstRow(result: any) {
   return result;
 }
 
-export const paymentStorage = {
+const paymentStorage = {
   async getUserByEmail(email: string) {
     const mod = await loadDbModule();
     const schema = await loadSchemaModule();
     if (!mod || !mod.db || !schema) {
       throw notReadyError('getUserByEmail');
     }
-
-    // Adapt these queries to your DB client; this is a placeholder showing intent
     try {
-      // Example for a query builder: return await db.select().from(users).where(eq(users.email, email)).limit(1)
-      const usersTable = schema.users;
-      if (!usersTable) throw new Error('users schema not found');
-      // Replace with your real query:
-      return await mod.db.getUserByEmail(email); // your DB should implement this helper
+      // Delegate to db.getUserByEmail in the shim or real DB.
+      return await mod.db.getUserByEmail(email);
     } catch (err) {
       console.error('getUserByEmail error:', err);
       throw err;
@@ -240,4 +233,5 @@ export const paymentStorage = {
   },
 };
 
+export const paymentStorage = paymentStorage;
 export default paymentStorage;
