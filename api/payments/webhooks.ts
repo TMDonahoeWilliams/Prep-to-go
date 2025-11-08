@@ -1,18 +1,12 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Stripe from 'stripe';
 import crypto from 'crypto';
-
-// Replace with real email provider implementation for production
-async function sendPasswordSetupEmail(toEmail: string, setupUrl: string) {
-  console.log(`(stub) send password setup email to ${toEmail}: ${setupUrl}`);
-  // integrate SendGrid, SES, etc. here
-}
+import sendPasswordSetupEmail from '../../server/emails/sendPasswordSetupEmail';
 
 // Read raw body for Stripe signature verification
 function rawBodyFromRequest(req: VercelRequest) {
   if (typeof req.body === 'string') return req.body;
   try {
-    // Vercel may parse; reconstruct raw body
     return JSON.stringify(req.body);
   } catch {
     return '';
@@ -28,7 +22,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.error('Stripe env missing');
     return res.status(500).send('Stripe not configured');
   }
-  const stripe = new Stripe(stripeSecret, { apiVersion: '2024-11-20' as any });
+
+  // Initialize Stripe client without hard-coded apiVersion (or override with STRIPE_API_VERSION)
+  const stripeOptions: any = {};
+  if (process.env.STRIPE_API_VERSION) stripeOptions.apiVersion = process.env.STRIPE_API_VERSION;
+  const stripe = new Stripe(stripeSecret, Object.keys(stripeOptions).length ? stripeOptions : undefined);
 
   // Load paymentStorage
   let paymentsModule: any = null;
@@ -133,7 +131,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const appBase = process.env.APP_BASE_URL || 'https://your-app.example.com';
         const setupUrl = `${appBase}/complete-setup?token=${token}`;
-        await sendPasswordSetupEmail(user.email, setupUrl);
+
+        try {
+          await sendPasswordSetupEmail(user.email, setupUrl, { name: user.first_name ?? user.firstName ?? undefined, supportEmail: process.env.SUPPORT_EMAIL });
+          console.log('Password setup email sent to', user.email);
+        } catch (emailErr: any) {
+          console.error('Failed to send password setup email:', emailErr?.message || emailErr);
+        }
       }
     }
 
