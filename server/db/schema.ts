@@ -1,6 +1,6 @@
-// Minimal placeholder schema to satisfy build when './db/schema' is imported.
-// IMPORTANT: Replace these placeholders with your real ORM/schema definitions (Drizzle/Prisma/etc.)
-// or adjust server/payments.ts to import the actual schema file path.
+// Minimal placeholder schema to satisfy imports during build.
+// Replace these with your real ORM schema/table definitions (Drizzle/Prisma/etc.)
+// or re-export your actual schema implementation.
 
 export const users = {
   id: 'id',
@@ -41,10 +41,8 @@ export const subscriptions = {
   created_at: 'created_at',
 };
 
-// If your code expects helper functions like `eq`, `and` from an ORM, you can export no-op stubs here.
-// But it's strongly recommended to replace this with the real ORM schema (e.g., from './db' or './db/schema.generated')
+// No-op condition helpers — these are placeholders. Replace with ORM-specific helpers.
 export function eq(/* column: any, value: any */) {
-  // Placeholder; real ORM will provide a condition builder
   return null as any;
 }
 export function and(...args: any[]) {
